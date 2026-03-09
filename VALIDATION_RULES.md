@@ -78,7 +78,12 @@ Les valeurs sont castées en entier avant comparaison.
 
 **Colonne déclencheur :** `Attribute Group ID` n'appartient pas à `FOOD_ATTRIBUTE_GROUP_IDS`
 
-> ⚠️ **Règle désactivée** — `FOOD_ATTRIBUTE_GROUP_IDS` est vide en attente de confirmation par le business sur quels IDs OSD correspondent aux produits alimentaires.
+Les Business Centres suivants sont **non-food** et ne doivent pas avoir de données nutritionnelles :
+- `01xxxxxx` — Administrative
+- `10xxxxxx` — Disposables
+- `18xxxxxx` — Supplies & Equipment
+
+Tous les autres Business Centres (02 à 19, hors 10 et 18) sont **food**.
 
 Les colonnes suivantes doivent être vides pour les produits non-alimentaires :
 
@@ -479,7 +484,7 @@ Almonds, Barley, Brazil Nuts, Cashew Nuts, Celery and products thereof, Gluten a
 | Rule 1 | Business | Legally packaged to be sold as a split? | ✅ Active |
 | Rule 2 | Business | Split vs Case dimensions | ✅ Active |
 | Rule 4 | Business | Shelf Life Customer / Sysco / Manufacturer | ✅ Active |
-| Rule 5 | Business | Attribute Group ID + colonnes nutritionnelles | ⚠️ Désactivée (FOOD IDs à confirmer) |
+| Rule 5 | Business | Attribute Group ID + colonnes nutritionnelles | ✅ Active |
 | Rule 8 | Business | Catch Weight + Range From/To | ✅ Active |
 | Rule 9 | Business | Does Product Have A Taric Code? + Taric Code | ✅ Active |
 | Rule 10 | Business | 45 champs obligatoires | ✅ Active |
