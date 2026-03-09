@@ -723,6 +723,24 @@ NUTRITIONAL_COLS = [
     "Fibre", "Protein", "Salt", "Sodium",
 ]
 
+# ---------------------------------------------------------------------------
+# Description columns — subject to special character validation (Rule F7)
+# ---------------------------------------------------------------------------
+DESCRIPTION_COLS = [
+    "Description Text",
+    "Marketing Description",
+    "Warehouse Description",
+    "Invoice Description",
+    "Search Name",
+    "First & Second Word",
+]
+
+# Allowed characters in description fields:
+#   alphanumeric, space, and: % & ( ) * + - . / ™ ® Ø
+# Any character outside this set is disallowed.
+# Update this pattern if the business confirms additional allowed characters.
+DESCRIPTION_ALLOWED_RE = re.compile(r"^[a-zA-Z0-9 %&()*+\-./™®Ø]*$")
+
 # Column name shorthands
 COL_SOLD_AS_SPLIT = "Legally packaged to be sold as a split?"
 COL_GTIN_OUTER = "GTIN-Outer"
@@ -1113,6 +1131,40 @@ def rule_country_of_origin_format(df: pd.DataFrame) -> list[dict]:
 # C. LOV RULES
 # =============================================================================
 
+def rule_description_special_chars(df: pd.DataFrame) -> list[dict]:
+    """
+    Rule F7 — Description fields must not contain disallowed special characters.
+
+    Allowed: alphanumeric, space, % & ( ) * + - . / ™ ® Ø
+    Disallowed: , ! " # $ ' : ; < = > ? @ [ \\ ] ^ _ ` { | } ~
+
+    Applies to: Description Text, Marketing Description, Warehouse Description,
+                Invoice Description, Search Name, First & Second Word.
+    """
+    rule_name = "Rule F7 — Description special characters"
+    results = []
+    present = [c for c in DESCRIPTION_COLS if c in df.columns]
+
+    for idx, row in df.iterrows():
+        for col in present:
+            raw = row.get(col)
+            if is_empty(raw):
+                continue
+            val_str = str(raw)
+            if not DESCRIPTION_ALLOWED_RE.match(val_str):
+                # Find the offending characters to include in the message
+                bad_chars = sorted({ch for ch in val_str if not re.match(r"[a-zA-Z0-9 %&()*+\-./™®Ø]", ch)})
+                results.append(make_result(
+                    sheet=SHEET, row=excel_row(idx), supc=get_supc(row),
+                    rule=rule_name,
+                    message=(
+                        f"Row {excel_row(idx)} — '{col}' contains disallowed "
+                        f"character(s): {' '.join(repr(c) for c in bad_chars)}"
+                    ),
+                ))
+    return results
+
+
 def rule_lov_attribute_group_id(df: pd.DataFrame) -> list[dict]:
     """
     Rule L0 — Attribute Group ID must be a valid OSD Hierarchy ID.
@@ -1380,6 +1432,7 @@ ALL_GLOBAL_RULES = [
     rule_integer_fields,                  # Rule F4
     rule_numeric_fields,                  # Rule F5
     rule_country_of_origin_format,        # Rule F6
+    rule_description_special_chars,       # Rule F7
     # C. LOV Rules
     rule_lov_attribute_group_id,          # Rule L0
     rule_lov_yes_no,                      # Rule L1
