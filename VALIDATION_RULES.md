@@ -278,7 +278,7 @@ The following columns must contain valid **numeric values** (float) when populat
 
 ### Rule F7 — Description fields special characters
 
-**Columns:** `Description Text`, `Marketing Description`, `Warehouse Description`, `Invoice Description`, `Search Name`, `First & Second Word`
+**Columns:** `Description Text`, `Marketing Description`, `Warehouse Description`, `Invoice Description`, `First & Second Word`
 
 Description fields must only contain alphanumeric characters, spaces, and the following allowed special characters:
 
@@ -295,6 +295,19 @@ The following characters are **not allowed**:
 > Update `DESCRIPTION_COLS` in `global_rules.py` to add or remove columns. Update `DESCRIPTION_ALLOWED_RE` to add or remove allowed characters.
 
 **Error:** `Row {n} — '{column}' contains disallowed character(s): {chars}`
+
+---
+
+### Rule F8 — Search Name format
+
+**Column:** `Search Name`
+
+- Alphanumeric characters only (`a-z`, `A-Z`, `0-9`)
+- No spaces
+- No special characters
+- Maximum **20 characters**
+
+**Error:** `Row {n} — 'Search Name' is invalid: {reason(s)}`
 
 ---
 
@@ -540,7 +553,8 @@ Only checked when the column is populated. Used when a generic/placeholder GTIN 
 | Rule F4 | Formatting | 11 integer columns | ✅ Active |
 | Rule F5 | Formatting | Weights, dimensions, nutritional | ✅ Active |
 | Rule F6 | Formatting | Country of Origin (4 columns) | ✅ Active |
-| Rule F7 | Formatting | Description special characters (6 columns) | ✅ Active |
+| Rule F7 | Formatting | Description special characters (5 columns) | ✅ Active |
+| Rule F8 | Formatting | Search Name (alphanumeric, no spaces, max 20 chars) | ✅ Active |
 | Rule L0 | LOV | Attribute Group ID (620+ OSD IDs) | ✅ Active |
 | Rule L1 | LOV | 18 Yes/No columns | ✅ Active |
 | Rule L2 | LOV | 28 allergen columns (0/1/2) | ✅ Active |

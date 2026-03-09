@@ -731,7 +731,6 @@ DESCRIPTION_COLS = [
     "Marketing Description",
     "Warehouse Description",
     "Invoice Description",
-    "Search Name",
     "First & Second Word",
 ]
 
@@ -1139,7 +1138,7 @@ def rule_description_special_chars(df: pd.DataFrame) -> list[dict]:
     Disallowed: , ! " # $ ' : ; < = > ? @ [ \\ ] ^ _ ` { | } ~
 
     Applies to: Description Text, Marketing Description, Warehouse Description,
-                Invoice Description, Search Name, First & Second Word.
+                Invoice Description, First & Second Word.
     """
     rule_name = "Rule F7 — Description special characters"
     results = []
@@ -1162,6 +1161,43 @@ def rule_description_special_chars(df: pd.DataFrame) -> list[dict]:
                         f"character(s): {' '.join(repr(c) for c in bad_chars)}"
                     ),
                 ))
+    return results
+
+
+_SEARCH_NAME_RE = re.compile(r"^[a-zA-Z0-9]{1,20}$")
+
+
+def rule_search_name_format(df: pd.DataFrame) -> list[dict]:
+    """
+    Rule F8 — Search Name format.
+
+    Must be:
+      - alphanumeric only (no spaces, no special characters)
+      - max 20 characters
+    """
+    rule_name = "Rule F8 — Search Name format"
+    col = "Search Name"
+    results = []
+    if col not in df.columns:
+        return results
+
+    for idx, row in df.iterrows():
+        raw = row.get(col)
+        if is_empty(raw):
+            continue
+        val_str = str(raw).strip()
+        if not _SEARCH_NAME_RE.match(val_str):
+            issues = []
+            if len(val_str) > 20:
+                issues.append(f"exceeds 20 characters ({len(val_str)})")
+            bad_chars = sorted({ch for ch in val_str if not ch.isalnum()})
+            if bad_chars:
+                issues.append(f"contains disallowed character(s): {' '.join(repr(c) for c in bad_chars)}")
+            results.append(make_result(
+                sheet=SHEET, row=excel_row(idx), supc=get_supc(row),
+                rule=rule_name,
+                message=f"Row {excel_row(idx)} — 'Search Name' is invalid: {'; '.join(issues)}",
+            ))
     return results
 
 
@@ -1433,6 +1469,7 @@ ALL_GLOBAL_RULES = [
     rule_numeric_fields,                  # Rule F5
     rule_country_of_origin_format,        # Rule F6
     rule_description_special_chars,       # Rule F7
+    rule_search_name_format,              # Rule F8
     # C. LOV Rules
     rule_lov_attribute_group_id,          # Rule L0
     rule_lov_yes_no,                      # Rule L1
