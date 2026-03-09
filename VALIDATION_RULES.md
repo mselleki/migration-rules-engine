@@ -1,30 +1,30 @@
 # Migration Rules Engine — Validation Rules Reference
 
-**Sheet couverte :** Global Product Data
-**Dernière mise à jour :** 2026-03-09
-**Source LOVs :** Stibo Master Data Dictionary MVP & Phase 1
+**Sheet covered:** Global Product Data
+**Last updated:** 2026-03-09
+**LOV source:** Stibo Master Data Dictionary MVP & Phase 1
 
 ---
 
-## Catégories
+## Categories
 
-| Préfixe | Catégorie | Description |
+| Prefix | Category | Description |
 |---|---|---|
-| Rule 1–10 | Business Rules | Contraintes logiques et conditionnelles |
-| Rule F1–F6 | Formatting Rules | Types de données, formats numériques |
-| Rule L0–L8 | LOV Rules | Listes de valeurs autorisées |
+| Rule 1–10 | Business Rules | Logical and conditional constraints |
+| Rule F1–F6 | Formatting Rules | Data types, numeric formats, field lengths |
+| Rule L0–L9 | LOV Rules | List-of-Values enforcement |
 
 ---
 
 ## A — Business Rules
 
-### Rule 1 — Split attributes requis si vendu en split
+### Rule 1 — Split attributes required when sold as split
 
-**Colonne déclencheur :** `Legally packaged to be sold as a split?` = `Yes`
+**Trigger column:** `Legally packaged to be sold as a split?` = `Yes`
 
-Les colonnes suivantes doivent toutes être renseignées :
+All of the following columns must be populated:
 
-| Colonne |
+| Column |
 |---|
 | GTIN-Inner |
 | Split Pack |
@@ -37,57 +37,59 @@ Les colonnes suivantes doivent toutes être renseignées :
 | Split Height |
 | Splits Per Case |
 
-**Erreur :** `Row {n} — Split product is missing required split attribute(s): {liste}`
+**Error:** `Row {n} — Split product is missing required split attribute(s): {list}`
 
 ---
 
-### Rule 2 — Dimensions split ≤ dimensions case
+### Rule 2 — Split dimensions must not exceed Case dimensions
 
-**Colonne déclencheur :** `Legally packaged to be sold as a split?` = `Yes`
+**Trigger column:** `Legally packaged to be sold as a split?` = `Yes`
 
-Les dimensions du split ne doivent pas dépasser celles du case (vérifié uniquement si les deux valeurs sont présentes) :
+Only checked when both values are present:
 
-| Dimension split | ≤ | Dimension case |
+| Split dimension | ≤ | Case dimension |
 |---|---|---|
 | Split Length | ≤ | Case Length |
 | Split Width | ≤ | Case Width |
 | Split Height | ≤ | Case Height |
 | Split Net Weight | ≤ | Case Net Weight |
 
-**Erreur :** `Row {n} — {Split attribute} ({valeur}) exceeds {Case attribute} ({valeur})`
+**Error:** `Row {n} — {Split attribute} ({value}) exceeds {Case attribute} ({value})`
 
 ---
 
-### Rule 4 — Ordre des Shelf Life
+### Rule 4 — Shelf Life order (Global)
 
-**Colonnes :** `Shelf Life Period in Days (Customer)`, `Shelf Life Period in Days (Sysco)`, `Shelf Life Period In Days (Manufacturer)`
+**Columns:** `Shelf Life Period in Days (Sysco)`, `Shelf Life Period In Days (Manufacturer)`
 
-Quand les trois valeurs sont présentes :
+When both values are present:
 
 ```
-Customer  <  Sysco  <  Manufacturer
+Sysco  <  Manufacturer
 ```
 
-Les valeurs sont castées en entier avant comparaison.
+> Note: `Shelf Life Period in Days (Customer)` is on the **Local Product Data** sheet and is validated there.
 
-**Erreur :** `Row {n} — Shelf Life order invalid: Customer ({c}) must be < Sysco ({s}) must be < Manufacturer ({m})`
+Values are cast to integer before comparison.
+
+**Error:** `Row {n} — Shelf Life order invalid: Sysco ({s}) must be < Manufacturer ({m})`
 
 ---
 
-### Rule 5 — Pas de données nutritionnelles pour les non-alimentaires
+### Rule 5 — No nutritional data for non-food products
 
-**Colonne déclencheur :** `Attribute Group ID` n'appartient pas à `FOOD_ATTRIBUTE_GROUP_IDS`
+**Trigger column:** `Attribute Group ID` not in `FOOD_ATTRIBUTE_GROUP_IDS`
 
-Les Business Centres suivants sont **non-food** et ne doivent pas avoir de données nutritionnelles :
+The following Business Centres are **non-food** and must have all nutritional columns empty:
 - `01xxxxxx` — Administrative
 - `10xxxxxx` — Disposables
 - `18xxxxxx` — Supplies & Equipment
 
-Tous les autres Business Centres (02 à 19, hors 10 et 18) sont **food**.
+All other Business Centres (02–09, 11–17, 19) are **food**.
 
-Les colonnes suivantes doivent être vides pour les produits non-alimentaires :
+The following columns must be empty for non-food products:
 
-| Colonne |
+| Column |
 |---|
 | Energy Kcal |
 | Energy KJ |
@@ -105,38 +107,37 @@ Les colonnes suivantes doivent être vides pour les produits non-alimentaires :
 | Salt |
 | Sodium |
 
-**Erreur :** `Row {n} — Non-food product (Attribute Group ID: {id}) has nutritional data populated`
+**Error:** `Row {n} — Non-food product (Attribute Group ID: {id}) has nutritional data populated`
 
 ---
 
-### Rule 8 — Catch Weight range obligatoire
+### Rule 8 — Catch Weight range required
 
-**Colonne déclencheur :** `Catch Weight` = `Yes`
+**Trigger column:** `Catch Weight` = `Yes`
 
-Les colonnes suivantes doivent être renseignées :
-
+The following columns must be populated:
 - `Case Catch Weight Range From`
 - `Case Catch Weight Range To`
 
-**Erreur :** `Row {n} — Catch Weight product is missing: {liste}`
+**Error:** `Row {n} — Catch Weight product is missing: {list}`
 
 ---
 
-### Rule 9 — Taric Code obligatoire si flagué
+### Rule 9 — Taric Code required when flagged
 
-**Colonne déclencheur :** `Does Product Have A Taric Code?` = `Yes`
+**Trigger column:** `Does Product Have A Taric Code?` = `Yes`
 
-La colonne `Taric Code/Commodity Code` doit être renseignée.
+`Taric Code/Commodity Code` must be populated.
 
-**Erreur :** `Row {n} — 'Does Product Have A Taric Code?' is Yes but 'Taric Code/Commodity Code' is empty`
+**Error:** `Row {n} — 'Does Product Have A Taric Code?' is Yes but 'Taric Code/Commodity Code' is empty`
 
 ---
 
-### Rule 10 — Champs obligatoires
+### Rule 10 — Mandatory fields
 
-Les colonnes suivantes doivent être renseignées pour chaque ligne :
+All of the following columns must be populated for every row:
 
-| # | Colonne |
+| # | Column |
 |---|---|
 | 1 | SUPC |
 | 2 | Attribute Group ID |
@@ -184,60 +185,60 @@ Les colonnes suivantes doivent être renseignées pour chaque ligne :
 | 44 | Country Of Origin - Sold From |
 | 45 | Country Of Origin - Raw Ingredients |
 
-**Erreur :** `Row {n} — Missing mandatory field(s): {liste}`
+**Error:** `Row {n} — Missing mandatory field(s): {list}`
 
 ---
 
 ## B — Formatting Rules
 
-### Rule 3 — Format GTIN-Outer
+### Rule 3 — GTIN-Outer format
 
-**Colonne :** `GTIN-Outer`
+**Column:** `GTIN-Outer`
 
-- Doit être numérique (chiffres uniquement)
-- Longueur exacte : **8, 12, 13 ou 14** chiffres
-- Les valeurs null/vides sont ignorées
-- Si Excel stocke la valeur en float (ex: `5038961000809.0`), la conversion en entier est appliquée avant vérification
+- Must be numeric (digits only)
+- Exact length: **8, 12, 13 or 14** digits
+- Null/empty values are skipped
+- If Excel stores the value as a float (e.g. `5038961000809.0`), it is converted to integer string before validation
 
-**Erreur :** `Row {n} — GTIN-Outer '{valeur}' is invalid. Must be 8, 12, 13 or 14 digits.`
-
----
-
-### Rule F1 — Format GTIN-Inner
-
-**Colonne :** `GTIN-Inner`
-
-Mêmes règles que GTIN-Outer. Vérifié uniquement si la valeur est présente.
-
-**Erreur :** `Row {n} — GTIN-Inner '{valeur}' is invalid. Must be 8, 12, 13 or 14 digits.`
+**Error:** `Row {n} — GTIN-Outer '{value}' is invalid. Must be 8, 12, 13 or 14 digits.`
 
 ---
 
-### Rule F2 — Format Attribute Group ID
+### Rule F1 — GTIN-Inner format
 
-**Colonne :** `Attribute Group ID`
+**Column:** `GTIN-Inner`
 
-Doit résoudre à **exactement 8 chiffres** après normalisation (zero-padding). Excel peut supprimer le zéro de tête en stockant la valeur comme entier — la valeur est zero-paddée avant vérification (ex: `1010100` → `01010100`).
+Same rules as GTIN-Outer. Only checked when populated.
 
-**Erreur :** `Row {n} — Attribute Group ID '{valeur}' must be exactly 8 digits.`
-
----
-
-### Rule F3 — Format Taric Code
-
-**Colonne :** `Taric Code/Commodity Code`
-
-Doit être composé de **exactement 8 chiffres** quand renseigné (ex: `16041997`).
-
-**Erreur :** `Row {n} — Taric Code '{valeur}' must be exactly 8 digits.`
+**Error:** `Row {n} — GTIN-Inner '{value}' is invalid. Must be 8, 12, 13 or 14 digits.`
 
 ---
 
-### Rule F4 — Champs entiers (Integer)
+### Rule F2 — Attribute Group ID format
 
-Les colonnes suivantes doivent contenir des **nombres entiers** (sans décimales) :
+**Column:** `Attribute Group ID`
 
-| Colonne |
+Must resolve to **exactly 8 digits** after zero-padding. Excel may drop the leading zero when storing as integer — the value is zero-padded before validation (e.g. `1010100` → `01010100`).
+
+**Error:** `Row {n} — Attribute Group ID '{value}' must be exactly 8 digits.`
+
+---
+
+### Rule F3 — Taric Code format
+
+**Column:** `Taric Code/Commodity Code`
+
+Must be exactly **8 digits** when populated (e.g. `16041997`).
+
+**Error:** `Row {n} — Taric Code '{value}' must be exactly 8 digits.`
+
+---
+
+### Rule F4 — Integer fields
+
+The following columns must contain **whole numbers** (no decimal part) when populated:
+
+| Column |
 |---|
 | SUPC |
 | Case Pack |
@@ -251,15 +252,15 @@ Les colonnes suivantes doivent contenir des **nombres entiers** (sans décimales
 | Shelf Life Period in Days (Sysco) |
 | Shelf Life Period in Days (Customer) |
 
-**Erreur :** `Row {n} — '{colonne}' must be a whole number, got '{valeur}'`
+**Error:** `Row {n} — '{column}' must be a whole number, got '{value}'`
 
 ---
 
-### Rule F5 — Champs numériques
+### Rule F5 — Numeric fields
 
-Les colonnes suivantes doivent contenir des **valeurs numériques** valides (float) quand renseignées :
+The following columns must contain valid **numeric values** (float) when populated:
 
-**Poids & Catch Weight**
+**Weights & Catch Weight**
 - Case Net Weight, Case Tare Weight, Case True Net Weight (Drained/Glazed)
 - Case Catch Weight Range From, Case Catch Weight Range To
 - Split Net Weight, Split Tare Weight, Split True Net Weight (Drained/Glazed)
@@ -268,24 +269,24 @@ Les colonnes suivantes doivent contenir des **valeurs numériques** valides (flo
 - Case Length, Case Width, Case Height
 - Split Length, Split Width, Split Height
 
-**Nutritionnel**
+**Nutritional**
 - Energy Kcal, Energy KJ, Fat, Of which Saturates, Of which Mono-Unsaturates, Of which Polyunsaturates, Of which Trans Fats, Carbohydrate, Of which Sugars, Of which Polyols, Of which Starch, Fibre, Protein, Salt, Sodium
 
-**Erreur :** `Row {n} — '{colonne}' must be a number, got '{valeur}'`
+**Error:** `Row {n} — '{column}' must be a number, got '{value}'`
 
 ---
 
-### Rule F6 — Format Country of Origin
+### Rule F6 — Country of Origin format
 
-**Colonnes :**
+**Columns:**
 - `Country Of Origin - Manufactured`
 - `Country Of Origin - Packed`
 - `Country Of Origin - Sold From`
 - `Country Of Origin - Raw Ingredients`
 
-Doit être un **code ISO 3166-1 alpha-2** : exactement 2 lettres majuscules (ex: `GB`, `FR`, `DE`, `BE`).
+Must be a valid **ISO 3166-1 alpha-2** code: exactly 2 uppercase letters (e.g. `GB`, `FR`, `DE`, `BE`).
 
-**Erreur :** `Row {n} — '{colonne}' value '{valeur}' must be a 2-letter ISO country code (e.g. GB, FR, DE).`
+**Error:** `Row {n} — '{column}' value '{value}' must be a 2-letter ISO country code (e.g. GB, FR, DE).`
 
 ---
 
@@ -293,23 +294,22 @@ Doit être un **code ISO 3166-1 alpha-2** : exactement 2 lettres majuscules (ex:
 
 ### Rule L0 — Attribute Group ID
 
-**Colonne :** `Attribute Group ID`
-**Source LOV :** OSD Hierarchy (Stibo MDD)
+**Column:** `Attribute Group ID`
+**LOV source:** OSD Hierarchy (Stibo MDD)
 
-La valeur doit appartenir à la liste des IDs OSD Hierarchy confirmés (620+ valeurs).
-La valeur est zero-paddée à 8 chiffres avant vérification.
+Must be one of the 620+ confirmed OSD Hierarchy IDs. Value is zero-padded to 8 digits before checking.
 
-> Mettre à jour la constante `ATTRIBUTE_GROUP_ID_LOV` dans `global_rules.py` si de nouveaux IDs sont ajoutés.
+> Update the `ATTRIBUTE_GROUP_ID_LOV` constant in `global_rules.py` if new IDs are added.
 
-**Erreur :** `Row {n} — Attribute Group ID '{valeur}' is not a recognised OSD Hierarchy ID.`
+**Error:** `Row {n} — Attribute Group ID '{value}' is not a recognised OSD Hierarchy ID.`
 
 ---
 
-### Rule L1 — Colonnes Yes / No
+### Rule L1 — Yes / No columns
 
-Les colonnes suivantes n'acceptent que les valeurs `Yes` ou `No` :
+The following columns only accept `Yes` or `No`:
 
-| Colonne |
+| Column |
 |---|
 | Customer Branded |
 | Multi Language Packaging |
@@ -330,32 +330,32 @@ Les colonnes suivantes n'acceptent que les valeurs `Yes` ou `No` :
 | Perishable Product/Date Tracked |
 | Does Product Have A Taric Code? |
 
-**Erreur :** `Row {n} — '{colonne}' value '{valeur}' is invalid. Allowed values: Yes, No.`
+**Error:** `Row {n} — '{column}' value '{value}' is invalid. Allowed values: Yes, No.`
 
 ---
 
-### Rule L2 — Colonnes Allergènes
+### Rule L2 — Allergen columns
 
-**Valeurs autorisées :** `0`, `1`, `2`
-**Source LOV :** allergen_Status
+**Allowed values:** `0`, `1`, `2`
+**LOV source:** allergen_Status
 
-| Valeur | Signification |
+| Value | Meaning |
 |---|---|
 | `0` | Contains |
 | `1` | May Contain |
 | `2` | Does Not Contain |
 
-**Colonnes concernées (28) :**
+**Columns (28):**
 Almonds, Barley, Brazil Nuts, Cashew Nuts, Celery and products thereof, Gluten at <gt/> 20 ppm, Crustaceans and products thereof, Eggs and products thereof, Fish and products thereof, Hazelnuts, Kamut, Lupin and products thereof, Macadamia Nuts/Queensland Nuts, Milk and products thereof, Molluscs and products thereof, Mustard and products thereof, Nuts, Oats, Peanuts and products thereof, Pecan Nuts, Pistachio Nuts, Rye, Sesame seeds and products thereof, Soybeans and products thereof, Spelt, Sulphur Dioxide <gt/> 10 ppm, Walnuts, Wheat
 
-**Erreur :** `Row {n} — '{colonne}' value '{valeur}' is invalid. Allowed values: 0 (Contains), 1 (May Contain), 2 (Does Not Contain).`
+**Error:** `Row {n} — '{column}' value '{value}' is invalid. Allowed values: 0 (Contains), 1 (May Contain), 2 (Does Not Contain).`
 
 ---
 
 ### Rule L3 — Unit of Measure (UOM)
 
-**Colonnes :** `Case UOM`, `Split UOM`
-**Source LOV :** UOM (44 codes confirmés)
+**Columns:** `Case UOM`, `Split UOM`
+**LOV source:** UOM (44 confirmed codes)
 
 | Code | Description | Code | Description |
 |---|---|---|---|
@@ -382,18 +382,18 @@ Almonds, Barley, Brazil Nuts, Cashew Nuts, Celery and products thereof, Gluten a
 | `L` | Litre | `LAY` | Layer |
 | `LOAF` | Loaf | `M` | Metre |
 
-> Étendre la constante `UOM_LOV` dans `global_rules.py` si de nouveaux codes sont confirmés.
+> Update `UOM_LOV` in `global_rules.py` if new codes are confirmed.
 
-**Erreur :** `Row {n} — '{colonne}' value '{valeur}' is not a recognised UOM code. Allowed: {liste}.`
+**Error:** `Row {n} — '{column}' value '{value}' is not a recognised UOM code. Allowed: {list}.`
 
 ---
 
 ### Rule L4 — Item Group
 
-**Colonne :** `Item Group`
-**Source LOV :** item_group
+**Column:** `Item Group`
+**LOV source:** item_group
 
-| Valeur | Description |
+| Value | Description |
 |---|---|
 | `FG-DRY` | Finished Goods - Dry |
 | `FG-COOLER` | Finished Goods - Cooler |
@@ -403,16 +403,16 @@ Almonds, Barley, Brazil Nuts, Cashew Nuts, Celery and products thereof, Gluten a
 | `RM-FREEZER` | Raw Materials - Freezer |
 | `NON FOOD` | Non Food |
 
-**Erreur :** `Row {n} — 'Item Group' value '{valeur}' is invalid. Allowed: {liste}.`
+**Error:** `Row {n} — 'Item Group' value '{value}' is invalid. Allowed: {list}.`
 
 ---
 
 ### Rule L5 — Item Model Group Id
 
-**Colonne :** `Item Model Group Id`
-**Source LOV :** item_model_group
+**Column:** `Item Model Group Id`
+**LOV source:** item_model_group
 
-| Valeur | Description |
+| Value | Description |
 |---|---|
 | `STK` | Stocked Item |
 | `JIT` | Just In Time |
@@ -420,16 +420,16 @@ Almonds, Barley, Brazil Nuts, Cashew Nuts, Celery and products thereof, Gluten a
 | `FG` | Finished Goods |
 | `NFI` | Non Food Item |
 
-**Erreur :** `Row {n} — 'Item Model Group Id' value '{valeur}' is invalid. Allowed: FG, JIT, NFI, RM, STK.`
+**Error:** `Row {n} — 'Item Model Group Id' value '{value}' is invalid. Allowed: FG, JIT, NFI, RM, STK.`
 
 ---
 
 ### Rule L6 — Sysco Finance Category
 
-**Colonne :** `Sysco Finance Category`
-**Source LOV :** finance_cat
+**Column:** `Sysco Finance Category`
+**LOV source:** finance_cat
 
-| Valeur | Description |
+| Value | Description |
 |---|---|
 | `PCAT1` | Medical/Hospitality |
 | `PCAT2` | Dairy |
@@ -444,63 +444,87 @@ Almonds, Barley, Brazil Nuts, Cashew Nuts, Celery and products thereof, Gluten a
 | `PCAT11` | Produce |
 | `PCAT12` | Beverage |
 
-**Erreur :** `Row {n} — 'Sysco Finance Category' value '{valeur}' is invalid. Allowed: {liste}.`
+**Error:** `Row {n} — 'Sysco Finance Category' value '{value}' is invalid. Allowed: {list}.`
 
 ---
 
 ### Rule L7 — Biodegradable or Compostable
 
-**Colonne :** `Biodegradable or Compostable`
-**Source LOV :** bio_degr
+**Column:** `Biodegradable or Compostable`
+**LOV source:** bio_degr
 
-| Valeur | Description |
+| Value | Description |
 |---|---|
 | `BIODEGRADABLE` | Biodegradable |
 | `COMPOSTABLE` | Compostable |
 | `NOT_APPLICABLE` | Not Applicable |
 
-**Erreur :** `Row {n} — 'Biodegradable or Compostable' value '{valeur}' is invalid. Allowed: BIODEGRADABLE, COMPOSTABLE, NOT_APPLICABLE.`
+**Error:** `Row {n} — 'Biodegradable or Compostable' value '{value}' is invalid. Allowed: BIODEGRADABLE, COMPOSTABLE, NOT_APPLICABLE.`
 
 ---
 
 ### Rule L8 — Nutritional Unit
 
-**Colonne :** `Nutritional Unit`
-**Source LOV :** nutritional_unit
+**Column:** `Nutritional Unit`
+**LOV source:** nutritional_unit
 
-| Valeur | Description |
+| Value | Description |
 |---|---|
 | `G` | Per 100g |
 | `ML` | Per 100ml |
 
-**Erreur :** `Row {n} — 'Nutritional Unit' value '{valeur}' is invalid. Allowed: G (per 100g), ML (per 100ml).`
+**Error:** `Row {n} — 'Nutritional Unit' value '{value}' is invalid. Allowed: G (per 100g), ML (per 100ml).`
 
 ---
 
-## Récapitulatif
+### Rule L9 — Generic GTIN
 
-| Règle | Catégorie | Colonnes clés | Statut |
+**Column:** `Generic GTIN`
+**LOV source:** GenericGTIN (9 confirmed values)
+
+Only checked when the column is populated. Used when a generic/placeholder GTIN is assigned instead of a real GS1 barcode.
+
+| Value | Description |
+|---|---|
+| `10000000000009` | Butchery |
+| `20000000000009` | Inhouse/Catering |
+| `30000000000009` | Equipment |
+| `40000000000009` | Fishmongery |
+| `50000000000009` | Non-GS1 Vendor |
+| `60000000000009` | To Be Delisted |
+| `70000000000009` | Produce |
+| `80000000000009` | Hold GTIN |
+| `99999999999999` | Generic placeholder |
+
+**Error:** `Row {n} — 'Generic GTIN' value '{value}' is not a recognised generic GTIN. Allowed: {list}.`
+
+---
+
+## Summary
+
+| Rule | Category | Key column(s) | Status |
 |---|---|---|---|
 | Rule 1 | Business | Legally packaged to be sold as a split? | ✅ Active |
 | Rule 2 | Business | Split vs Case dimensions | ✅ Active |
-| Rule 4 | Business | Shelf Life Customer / Sysco / Manufacturer | ✅ Active |
-| Rule 5 | Business | Attribute Group ID + colonnes nutritionnelles | ✅ Active |
+| Rule 4 | Business | Shelf Life Sysco / Manufacturer | ✅ Active |
+| Rule 5 | Business | Attribute Group ID + nutritional columns | ✅ Active |
 | Rule 8 | Business | Catch Weight + Range From/To | ✅ Active |
 | Rule 9 | Business | Does Product Have A Taric Code? + Taric Code | ✅ Active |
-| Rule 10 | Business | 45 champs obligatoires | ✅ Active |
+| Rule 10 | Business | 45 mandatory fields | ✅ Active |
 | Rule 3 | Formatting | GTIN-Outer | ✅ Active |
 | Rule F1 | Formatting | GTIN-Inner | ✅ Active |
-| Rule F2 | Formatting | Attribute Group ID (8 chiffres, zero-padded) | ✅ Active |
+| Rule F2 | Formatting | Attribute Group ID (8 digits, zero-padded) | ✅ Active |
 | Rule F3 | Formatting | Taric Code/Commodity Code | ✅ Active |
-| Rule F4 | Formatting | 11 colonnes entières | ✅ Active |
-| Rule F5 | Formatting | Poids, dimensions, nutritionnel | ✅ Active |
-| Rule F6 | Formatting | Country of Origin (4 colonnes) | ✅ Active |
-| Rule L0 | LOV | Attribute Group ID (620+ IDs OSD) | ✅ Active |
-| Rule L1 | LOV | 18 colonnes Yes/No | ✅ Active |
-| Rule L2 | LOV | 28 colonnes allergènes (0/1/2) | ✅ Active |
+| Rule F4 | Formatting | 11 integer columns | ✅ Active |
+| Rule F5 | Formatting | Weights, dimensions, nutritional | ✅ Active |
+| Rule F6 | Formatting | Country of Origin (4 columns) | ✅ Active |
+| Rule L0 | LOV | Attribute Group ID (620+ OSD IDs) | ✅ Active |
+| Rule L1 | LOV | 18 Yes/No columns | ✅ Active |
+| Rule L2 | LOV | 28 allergen columns (0/1/2) | ✅ Active |
 | Rule L3 | LOV | Case UOM, Split UOM (44 codes) | ✅ Active |
-| Rule L4 | LOV | Item Group (7 valeurs) | ✅ Active |
-| Rule L5 | LOV | Item Model Group Id (5 valeurs) | ✅ Active |
+| Rule L4 | LOV | Item Group (7 values) | ✅ Active |
+| Rule L5 | LOV | Item Model Group Id (5 values) | ✅ Active |
 | Rule L6 | LOV | Sysco Finance Category (PCAT1–PCAT12) | ✅ Active |
-| Rule L7 | LOV | Biodegradable or Compostable (3 valeurs) | ✅ Active |
+| Rule L7 | LOV | Biodegradable or Compostable (3 values) | ✅ Active |
 | Rule L8 | LOV | Nutritional Unit (G, ML) | ✅ Active |
+| Rule L9 | LOV | Generic GTIN (9 values) | ✅ Active |

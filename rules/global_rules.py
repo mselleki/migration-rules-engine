@@ -568,6 +568,22 @@ FINANCE_CATEGORY_LOV = {
 }
 
 # ---------------------------------------------------------------------------
+# LOV — Generic GTIN
+# Source: GenericGTIN LOV — 9 values confirmed
+# ---------------------------------------------------------------------------
+GENERIC_GTIN_LOV = {
+    "10000000000009",  # Butchery
+    "20000000000009",  # Inhouse/Catering
+    "30000000000009",  # Equipment
+    "40000000000009",  # Fishmongery
+    "50000000000009",  # Non-GS1 Vendor
+    "60000000000009",  # To Be Delisted
+    "70000000000009",  # Produce
+    "80000000000009",  # Hold GTIN
+    "99999999999999",  # Generic placeholder
+}
+
+# ---------------------------------------------------------------------------
 # LOV — Biodegradable or Compostable
 # Source: bio_degr LOV
 # ---------------------------------------------------------------------------
@@ -798,30 +814,29 @@ def rule_split_dimensions_within_case(df: pd.DataFrame) -> list[dict]:
 
 def rule_shelf_life_order(df: pd.DataFrame) -> list[dict]:
     """
-    Rule 4 — Shelf Life order.
-    When all three values are present: Customer < Sysco < Manufacturer.
+    Rule 4 — Shelf Life order (Global sheet).
+    When both values are present: Sysco < Manufacturer.
+    Note: 'Shelf Life Period in Days (Customer)' lives on the Local Product Data sheet.
     """
     rule_name = "Rule 4 — Shelf Life order"
     results = []
-    required = [COL_SHELF_CUSTOMER, COL_SHELF_SYSCO, COL_SHELF_MANUFACTURER]
-    if any(c not in df.columns for c in required):
+    if COL_SHELF_SYSCO not in df.columns or COL_SHELF_MANUFACTURER not in df.columns:
         return results
 
     for idx, row in df.iterrows():
-        c_raw = row.get(COL_SHELF_CUSTOMER)
         s_raw = row.get(COL_SHELF_SYSCO)
         m_raw = row.get(COL_SHELF_MANUFACTURER)
-        if is_empty(c_raw) or is_empty(s_raw) or is_empty(m_raw):
+        if is_empty(s_raw) or is_empty(m_raw):
             continue
         try:
-            c, s, m = int(float(c_raw)), int(float(s_raw)), int(float(m_raw))
+            s, m = int(float(s_raw)), int(float(m_raw))
         except (ValueError, TypeError):
             continue
-        if not (c < s < m):
+        if not (s < m):
             results.append(make_result(
                 sheet=SHEET, row=excel_row(idx), supc=get_supc(row),
                 rule=rule_name,
-                message=f"Row {excel_row(idx)} — Shelf Life order invalid: Customer ({c}) must be < Sysco ({s}) must be < Manufacturer ({m})",
+                message=f"Row {excel_row(idx)} — Shelf Life order invalid: Sysco ({s}) must be < Manufacturer ({m})",
             ))
     return results
 
@@ -831,7 +846,7 @@ def rule_no_nutrition_for_non_food(df: pd.DataFrame) -> list[dict]:
     Rule 5 — Nutritional data must be empty for non-food products.
     If Attribute Group ID is not in FOOD_ATTRIBUTE_GROUP_IDS, all nutritional
     columns must be null or empty.
-    Note: FOOD_ATTRIBUTE_GROUP_IDS is currently empty — populate when confirmed.
+    Non-food Business Centres: Administrative (01), Disposables (10), Supplies & Equipment (18).
     """
     rule_name = "Rule 5 — Nutritional data must be empty for non-food products"
     results = []
@@ -1290,6 +1305,36 @@ def rule_lov_biodegradable(df: pd.DataFrame) -> list[dict]:
     return results
 
 
+def rule_lov_generic_gtin(df: pd.DataFrame) -> list[dict]:
+    """
+    Rule L9 — Generic GTIN must be one of the 9 authorised placeholder values.
+    Source: GenericGTIN LOV.
+    Only checked when the column is populated.
+    """
+    rule_name = "Rule L9 — Generic GTIN LOV"
+    results = []
+    col = "Generic GTIN"
+    if col not in df.columns:
+        return results
+
+    for idx, row in df.iterrows():
+        raw = row.get(col)
+        if is_empty(raw):
+            continue
+        # Normalise: Excel may store as float
+        if isinstance(raw, float) and raw == int(raw):
+            val_str = str(int(raw))
+        else:
+            val_str = str(raw).strip()
+        if val_str not in GENERIC_GTIN_LOV:
+            results.append(make_result(
+                sheet=SHEET, row=excel_row(idx), supc=get_supc(row),
+                rule=rule_name,
+                message=f"Row {excel_row(idx)} — 'Generic GTIN' value '{val_str}' is not a recognised generic GTIN. Allowed: {', '.join(sorted(GENERIC_GTIN_LOV))}.",
+            ))
+    return results
+
+
 def rule_lov_nutritional_unit(df: pd.DataFrame) -> list[dict]:
     """
     Rule L8 — Nutritional Unit must be 'G' (per 100g) or 'ML' (per 100ml).
@@ -1345,4 +1390,5 @@ ALL_GLOBAL_RULES = [
     rule_lov_finance_category,            # Rule L6
     rule_lov_biodegradable,               # Rule L7
     rule_lov_nutritional_unit,            # Rule L8
+    rule_lov_generic_gtin,               # Rule L9
 ]
