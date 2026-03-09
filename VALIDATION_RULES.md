@@ -2,6 +2,7 @@
 
 **Sheet couverte :** Global Product Data
 **Dernière mise à jour :** 2026-03-09
+**Source LOVs :** Stibo Master Data Dictionary MVP & Phase 1
 
 ---
 
@@ -11,7 +12,7 @@
 |---|---|---|
 | Rule 1–10 | Business Rules | Contraintes logiques et conditionnelles |
 | Rule F1–F6 | Formatting Rules | Types de données, formats numériques |
-| Rule L1–L5 | LOV Rules | Listes de valeurs autorisées |
+| Rule L0–L8 | LOV Rules | Listes de valeurs autorisées |
 
 ---
 
@@ -75,9 +76,11 @@ Les valeurs sont castées en entier avant comparaison.
 
 ### Rule 5 — Pas de données nutritionnelles pour les non-alimentaires
 
-**Colonne déclencheur :** `Attribute Group ID` n'appartient pas à la liste des IDs alimentaires
+**Colonne déclencheur :** `Attribute Group ID` n'appartient pas à `FOOD_ATTRIBUTE_GROUP_IDS`
 
-Les colonnes suivantes doivent être vides :
+> ⚠️ **Règle désactivée** — `FOOD_ATTRIBUTE_GROUP_IDS` est vide en attente de confirmation par le business sur quels IDs OSD correspondent aux produits alimentaires.
+
+Les colonnes suivantes doivent être vides pour les produits non-alimentaires :
 
 | Colonne |
 |---|
@@ -96,8 +99,6 @@ Les colonnes suivantes doivent être vides :
 | Protein |
 | Salt |
 | Sodium |
-
-> Les IDs alimentaires sont définis dans la constante `FOOD_ATTRIBUTE_GROUP_IDS` dans `global_rules.py`.
 
 **Erreur :** `Row {n} — Non-food product (Attribute Group ID: {id}) has nutritional data populated`
 
@@ -211,7 +212,7 @@ Mêmes règles que GTIN-Outer. Vérifié uniquement si la valeur est présente.
 
 **Colonne :** `Attribute Group ID`
 
-Doit être composé de **exactement 8 chiffres** (ex: `17031100`).
+Doit résoudre à **exactement 8 chiffres** après normalisation (zero-padding). Excel peut supprimer le zéro de tête en stockant la valeur comme entier — la valeur est zero-paddée avant vérification (ex: `1010100` → `01010100`).
 
 **Erreur :** `Row {n} — Attribute Group ID '{valeur}' must be exactly 8 digits.`
 
@@ -285,6 +286,20 @@ Doit être un **code ISO 3166-1 alpha-2** : exactement 2 lettres majuscules (ex:
 
 ## C — LOV Rules
 
+### Rule L0 — Attribute Group ID
+
+**Colonne :** `Attribute Group ID`
+**Source LOV :** OSD Hierarchy (Stibo MDD)
+
+La valeur doit appartenir à la liste des IDs OSD Hierarchy confirmés (620+ valeurs).
+La valeur est zero-paddée à 8 chiffres avant vérification.
+
+> Mettre à jour la constante `ATTRIBUTE_GROUP_ID_LOV` dans `global_rules.py` si de nouveaux IDs sont ajoutés.
+
+**Erreur :** `Row {n} — Attribute Group ID '{valeur}' is not a recognised OSD Hierarchy ID.`
+
+---
+
 ### Rule L1 — Colonnes Yes / No
 
 Les colonnes suivantes n'acceptent que les valeurs `Yes` ou `No` :
@@ -304,7 +319,6 @@ Les colonnes suivantes n'acceptent que les valeurs `Yes` ou `No` :
 | Organic |
 | Vegan |
 | Vegetarian |
-| Biodegradable or Compostable |
 | Recyclable |
 | Hazardous Material |
 | Product Warranty |
@@ -318,6 +332,7 @@ Les colonnes suivantes n'acceptent que les valeurs `Yes` ou `No` :
 ### Rule L2 — Colonnes Allergènes
 
 **Valeurs autorisées :** `0`, `1`, `2`
+**Source LOV :** allergen_Status
 
 | Valeur | Signification |
 |---|---|
@@ -335,20 +350,32 @@ Almonds, Barley, Brazil Nuts, Cashew Nuts, Celery and products thereof, Gluten a
 ### Rule L3 — Unit of Measure (UOM)
 
 **Colonnes :** `Case UOM`, `Split UOM`
+**Source LOV :** UOM (44 codes confirmés)
 
-**Valeurs autorisées (Stibo IDs) :**
-
-| Code | Description |
-|---|---|
-| `GM` | Grammes |
-| `ML` | Millilitres |
-| `KG` | Kilogrammes |
-| `EA` | Each (unité) |
-| `L` | Litres |
-| `CL` | Centilitres |
-| `DL` | Décilitres |
-| `LB` | Livres |
-| `OZ` | Onces |
+| Code | Description | Code | Description |
+|---|---|---|---|
+| `BL` | Block | `MG` | Miligram |
+| `BOT` | Bottle | `ML` | Mililitre |
+| `BX` | Box | `MM` | Milimetre |
+| `BRI` | Brick | `OZ` | Ounce |
+| `BUC` | Bucket | `PK` | Pack |
+| `BNC` | Bunch | `PKT` | Packet |
+| `BUN` | Bundle | `PR` | Pair |
+| `CAR` | Carton | `PALLET` | Pallet |
+| `CS` | Case | `PC` | Piece |
+| `CL` | Centilitre | `PT` | Pint |
+| `CM` | Centimetre | `PTN` | Portion |
+| `CRA` | Crate | `LB` | Pound |
+| `DL` | Decilitre | `PUN` | Punnet |
+| `DZ` | Dozen | `SHT` | Sheets |
+| `EA` | Each | `SMB` | Small Block |
+| `GM` | Gram | `TNK` | Tank |
+| `GAL` | Gallon | `TIN` | Tin |
+| `HG` | Hectogram | `TRY` | Tray |
+| `IN` | Inch | `UN` | Unit |
+| `KG` | Kilogram | `POT` | Pot |
+| `L` | Litre | `LAY` | Layer |
+| `LOAF` | Loaf | `M` | Metre |
 
 > Étendre la constante `UOM_LOV` dans `global_rules.py` si de nouveaux codes sont confirmés.
 
@@ -359,36 +386,89 @@ Almonds, Barley, Brazil Nuts, Cashew Nuts, Celery and products thereof, Gluten a
 ### Rule L4 — Item Group
 
 **Colonne :** `Item Group`
+**Source LOV :** item_group
 
-**Valeurs autorisées :**
-
-| Valeur |
-|---|
-| `FG-Freezer` |
-| `FG-Dry` |
-| `FG-Cooler` |
-| `FG-Ambient` |
-
-> Étendre la constante `ITEM_GROUP_LOV` dans `global_rules.py` si de nouvelles valeurs sont confirmées.
+| Valeur | Description |
+|---|---|
+| `FG-DRY` | Finished Goods - Dry |
+| `FG-COOLER` | Finished Goods - Cooler |
+| `FG-FREEZER` | Finished Goods - Freezer |
+| `RM-DRY` | Raw Materials - Dry |
+| `RM-COOLER` | Raw Materials - Cooler |
+| `RM-FREEZER` | Raw Materials - Freezer |
+| `NON FOOD` | Non Food |
 
 **Erreur :** `Row {n} — 'Item Group' value '{valeur}' is invalid. Allowed: {liste}.`
 
 ---
 
-### Rule L5 — Nutritional Unit
+### Rule L5 — Item Model Group Id
+
+**Colonne :** `Item Model Group Id`
+**Source LOV :** item_model_group
+
+| Valeur | Description |
+|---|---|
+| `STK` | Stocked Item |
+| `JIT` | Just In Time |
+| `RM` | Raw Materials |
+| `FG` | Finished Goods |
+| `NFI` | Non Food Item |
+
+**Erreur :** `Row {n} — 'Item Model Group Id' value '{valeur}' is invalid. Allowed: FG, JIT, NFI, RM, STK.`
+
+---
+
+### Rule L6 — Sysco Finance Category
+
+**Colonne :** `Sysco Finance Category`
+**Source LOV :** finance_cat
+
+| Valeur | Description |
+|---|---|
+| `PCAT1` | Medical/Hospitality |
+| `PCAT2` | Dairy |
+| `PCAT3` | Meat |
+| `PCAT4` | Seafood |
+| `PCAT5` | Poultry |
+| `PCAT6` | Frozen |
+| `PCAT7` | Canned & Dry |
+| `PCAT8` | Paper/Disposables |
+| `PCAT9` | Chemical/Janitorial |
+| `PCAT10` | Supplier & Equipment |
+| `PCAT11` | Produce |
+| `PCAT12` | Beverage |
+
+**Erreur :** `Row {n} — 'Sysco Finance Category' value '{valeur}' is invalid. Allowed: {liste}.`
+
+---
+
+### Rule L7 — Biodegradable or Compostable
+
+**Colonne :** `Biodegradable or Compostable`
+**Source LOV :** bio_degr
+
+| Valeur | Description |
+|---|---|
+| `BIODEGRADABLE` | Biodegradable |
+| `COMPOSTABLE` | Compostable |
+| `NOT_APPLICABLE` | Not Applicable |
+
+**Erreur :** `Row {n} — 'Biodegradable or Compostable' value '{valeur}' is invalid. Allowed: BIODEGRADABLE, COMPOSTABLE, NOT_APPLICABLE.`
+
+---
+
+### Rule L8 — Nutritional Unit
 
 **Colonne :** `Nutritional Unit`
+**Source LOV :** nutritional_unit
 
-**Valeurs autorisées :**
-
-| Code | Description |
+| Valeur | Description |
 |---|---|
-| `G` | Grammes |
-| `ML` | Millilitres |
+| `G` | Per 100g |
+| `ML` | Per 100ml |
 
-> Étendre la constante `NUTRITIONAL_UNIT_LOV` dans `global_rules.py` si de nouveaux codes sont confirmés.
-
-**Erreur :** `Row {n} — 'Nutritional Unit' value '{valeur}' is invalid. Allowed: G, ML.`
+**Erreur :** `Row {n} — 'Nutritional Unit' value '{valeur}' is invalid. Allowed: G (per 100g), ML (per 100ml).`
 
 ---
 
@@ -396,22 +476,26 @@ Almonds, Barley, Brazil Nuts, Cashew Nuts, Celery and products thereof, Gluten a
 
 | Règle | Catégorie | Colonnes clés | Statut |
 |---|---|---|---|
-| Rule 1 | Business | Legally packaged to be sold as a split? | ✅ Implémentée |
-| Rule 2 | Business | Split vs Case dimensions | ✅ Implémentée |
-| Rule 4 | Business | Shelf Life Customer / Sysco / Manufacturer | ✅ Implémentée |
-| Rule 5 | Business | Attribute Group ID + colonnes nutritionnelles | ✅ Implémentée |
-| Rule 8 | Business | Catch Weight + Range From/To | ✅ Implémentée |
-| Rule 9 | Business | Does Product Have A Taric Code? + Taric Code | ✅ Implémentée |
-| Rule 10 | Business | 45 champs obligatoires | ✅ Implémentée |
-| Rule 3 | Formatting | GTIN-Outer | ✅ Implémentée |
-| Rule F1 | Formatting | GTIN-Inner | ✅ Implémentée |
-| Rule F2 | Formatting | Attribute Group ID | ✅ Implémentée |
-| Rule F3 | Formatting | Taric Code/Commodity Code | ✅ Implémentée |
-| Rule F4 | Formatting | 11 colonnes entières | ✅ Implémentée |
-| Rule F5 | Formatting | Poids, dimensions, nutritionnel | ✅ Implémentée |
-| Rule F6 | Formatting | Country of Origin (4 colonnes) | ✅ Implémentée |
-| Rule L1 | LOV | 19 colonnes Yes/No | ✅ Implémentée |
-| Rule L2 | LOV | 28 colonnes allergènes (0/1/2) | ✅ Implémentée |
-| Rule L3 | LOV | Case UOM, Split UOM | ✅ Implémentée |
-| Rule L4 | LOV | Item Group | ✅ Implémentée |
-| Rule L5 | LOV | Nutritional Unit | ✅ Implémentée |
+| Rule 1 | Business | Legally packaged to be sold as a split? | ✅ Active |
+| Rule 2 | Business | Split vs Case dimensions | ✅ Active |
+| Rule 4 | Business | Shelf Life Customer / Sysco / Manufacturer | ✅ Active |
+| Rule 5 | Business | Attribute Group ID + colonnes nutritionnelles | ⚠️ Désactivée (FOOD IDs à confirmer) |
+| Rule 8 | Business | Catch Weight + Range From/To | ✅ Active |
+| Rule 9 | Business | Does Product Have A Taric Code? + Taric Code | ✅ Active |
+| Rule 10 | Business | 45 champs obligatoires | ✅ Active |
+| Rule 3 | Formatting | GTIN-Outer | ✅ Active |
+| Rule F1 | Formatting | GTIN-Inner | ✅ Active |
+| Rule F2 | Formatting | Attribute Group ID (8 chiffres, zero-padded) | ✅ Active |
+| Rule F3 | Formatting | Taric Code/Commodity Code | ✅ Active |
+| Rule F4 | Formatting | 11 colonnes entières | ✅ Active |
+| Rule F5 | Formatting | Poids, dimensions, nutritionnel | ✅ Active |
+| Rule F6 | Formatting | Country of Origin (4 colonnes) | ✅ Active |
+| Rule L0 | LOV | Attribute Group ID (620+ IDs OSD) | ✅ Active |
+| Rule L1 | LOV | 18 colonnes Yes/No | ✅ Active |
+| Rule L2 | LOV | 28 colonnes allergènes (0/1/2) | ✅ Active |
+| Rule L3 | LOV | Case UOM, Split UOM (44 codes) | ✅ Active |
+| Rule L4 | LOV | Item Group (7 valeurs) | ✅ Active |
+| Rule L5 | LOV | Item Model Group Id (5 valeurs) | ✅ Active |
+| Rule L6 | LOV | Sysco Finance Category (PCAT1–PCAT12) | ✅ Active |
+| Rule L7 | LOV | Biodegradable or Compostable (3 valeurs) | ✅ Active |
+| Rule L8 | LOV | Nutritional Unit (G, ML) | ✅ Active |
