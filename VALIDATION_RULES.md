@@ -119,7 +119,15 @@ The following columns must be populated:
 - `Case Catch Weight Range From`
 - `Case Catch Weight Range To`
 
-**Error:** `Row {n} — Catch Weight product is missing: {list}`
+When both values are present:
+
+```
+Case Catch Weight Range From  ≤  Case Catch Weight Range To
+```
+
+**Error (missing):** `Row {n} — Catch Weight product is missing: {list}`
+
+**Error (range):** `Row {n} — Catch Weight Range From ({value}) must be ≤ Range To ({value})`
 
 ---
 

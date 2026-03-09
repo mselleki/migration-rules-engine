@@ -908,6 +908,20 @@ def rule_catch_weight_conditional(df: pd.DataFrame) -> list[dict]:
                 rule=rule_name,
                 message=f"Row {excel_row(idx)} — Catch Weight product is missing: {', '.join(missing)}",
             ))
+        else:
+            # Both From and To are present — check From <= To
+            from_raw = row.get(COL_CATCH_FROM)
+            to_raw = row.get(COL_CATCH_TO)
+            if not is_empty(from_raw) and not is_empty(to_raw):
+                try:
+                    if float(from_raw) > float(to_raw):
+                        results.append(make_result(
+                            sheet=SHEET, row=excel_row(idx), supc=get_supc(row),
+                            rule=rule_name,
+                            message=f"Row {excel_row(idx)} — Catch Weight Range From ({from_raw}) must be ≤ Range To ({to_raw})",
+                        ))
+                except (ValueError, TypeError):
+                    pass
     return results
 
 
