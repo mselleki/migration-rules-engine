@@ -2,6 +2,7 @@
 
 import sys
 import os
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
@@ -9,6 +10,7 @@ import streamlit as st
 sys.path.insert(0, os.path.dirname(__file__))
 
 from validator import validate, ValidationReport  # noqa: E402
+from utils.lov_extractor import extract_lovs_from_excel
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -91,12 +93,7 @@ def _render_errors_table(report: ValidationReport) -> None:
     )
 
 
-# ---------------------------------------------------------------------------
-# Main app
-# ---------------------------------------------------------------------------
-
-def main() -> None:
-    st.title("Sysco Migration Rules Engine")
+def _render_validation_tab() -> None:
     st.markdown(
         "Upload the two migration files and click **Run Validation** to validate "
         "them against all business rules."
@@ -167,6 +164,111 @@ def main() -> None:
             file_name="validation_errors.csv",
             mime="text/csv",
         )
+
+
+def _render_lov_explorer_tab() -> None:
+    st.markdown("Browse and inspect all LOVs.")
+    st.caption(
+        "By default the app will load the flattened LOVs from `input/lovs_flat.csv` "
+        "if available, or derive them from `LOVs.xlsx` in the project root. "
+        "You can also upload a different LOV workbook below."
+    )
+
+    uploaded_lov_file = st.file_uploader(
+        "Optional: upload a LOVs workbook (.xlsx)",
+        type=["xlsx"],
+        key="lovs_file",
+    )
+
+    df_flat: pd.DataFrame | None = None
+    source_label = ""
+
+    try:
+        if uploaded_lov_file is not None:
+            # For uploaded workbooks, derive LOVs on the fly using the same extractor logic.
+            # We read to a temporary file-like DataFrame and reuse the extractor on disk file
+            # by writing a temporary file would be overkill here, so we keep the simple view:
+            raw_df = pd.read_excel(uploaded_lov_file, engine="openpyxl", header=None)
+            if raw_df.empty:
+                st.warning("The uploaded LOV workbook appears to be empty.")
+                return
+            # Minimal flattening: treat first two non-null columns as description/key pairs.
+            # For richer behaviour, the user should regenerate `lovs_flat.csv` server-side.
+            st.warning(
+                "Uploaded workbook support is limited to the raw view for now. "
+                "Regenerate `lovs_flat.csv` from `LOVs.xlsx` for a fully flattened view."
+            )
+            st.dataframe(raw_df, use_container_width=True)
+            return
+
+        # No upload: prefer the pre-flattened CSV if it exists
+        project_root = Path(__file__).resolve().parent
+        flat_path = project_root / "input" / "lovs_flat.csv"
+        if flat_path.exists():
+            df_flat = pd.read_csv(flat_path)
+            source_label = f"`{flat_path}`"
+        else:
+            # Fallback: derive from LOVs.xlsx on the fly
+            lovs_path = project_root / "LOVs.xlsx"
+
+            if not lovs_path.exists():
+                st.info(
+                    "No `input/lovs_flat.csv` or `LOVs.xlsx` found. "
+                    "Upload a workbook above or generate LOVs using `utils.lov_extractor`."
+                )
+                return
+
+            df_flat = extract_lovs_from_excel(str(lovs_path))
+            source_label = "`LOVs.xlsx` in project root"
+    except Exception as exc:
+        st.error(f"Failed to load LOVs: {exc}")
+        return
+
+    if df_flat is None or df_flat.empty:
+        st.warning("No LOV rows were found.")
+        return
+
+    st.success(
+        f"Loaded flattened LOVs from {source_label} — {len(df_flat)} rows, "
+        f"{len(df_flat.columns)} columns."
+    )
+
+    lov_df = df_flat.copy()
+
+    # High-level selector: attribute name
+    attributes = sorted({str(v).strip() for v in lov_df["attribute"].dropna().unique()})
+    selected_attr = st.selectbox(
+        "Filter by attribute", options=["All attributes"] + attributes
+    )
+    if selected_attr != "All attributes":
+        lov_df = lov_df[lov_df["attribute"].astype(str).str.strip() == selected_attr]
+
+    # Text filter over key / description
+    text_filter = st.text_input(
+        "Optional text filter (matches in `key` or `description`)"
+    ).strip()
+    if text_filter:
+        mask = (
+            lov_df["key"].astype(str).str.contains(text_filter, case=False, na=False)
+            | lov_df["description"]
+            .astype(str)
+            .str.contains(text_filter, case=False, na=False)
+        )
+        lov_df = lov_df[mask]
+
+    st.markdown("### LOVs table")
+    st.dataframe(lov_df, use_container_width=True, hide_index=True)
+
+
+def main() -> None:
+    st.title("Sysco Migration Rules Engine")
+    tabs = st.tabs(["Validation", "LOV Explorer"])
+
+    with tabs[0]:
+        _render_validation_tab()
+
+    with tabs[1]:
+        _render_lov_explorer_tab()
 
 
 if __name__ == "__main__":

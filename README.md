@@ -5,7 +5,7 @@ A Streamlit application that validates Sysco product migration Excel files again
 ## Project structure
 
 ```
-migration-rules-engine/
+.
 ├── app.py               # Streamlit UI
 ├── validator.py         # Orchestrates validation across both files
 ├── rules/
@@ -15,6 +15,7 @@ migration-rules-engine/
 ├── utils/
 │   ├── __init__.py
 │   └── helpers.py       # Shared utility functions
+├── input/               # Excel input files (Global & Local Product Data)
 ├── VALIDATION_RULES.md  # Full rule reference (English)
 ├── requirements.txt
 └── README.md
@@ -23,6 +24,9 @@ migration-rules-engine/
 ## Setup
 
 ```bash
+python -m venv .venv           # or: py -3 -m venv .venv  (Windows)
+.venv\Scripts\activate         # Windows
+# source .venv/bin/activate    # macOS / Linux
 pip install -r requirements.txt
 ```
 
