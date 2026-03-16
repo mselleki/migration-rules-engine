@@ -1,16 +1,18 @@
 import { BrowserRouter, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { LayoutDashboard, CheckSquare, List, GitMerge, Sun, Moon } from "lucide-react";
+import { LayoutDashboard, CheckSquare, List, GitMerge, BookOpen, Sun, Moon } from "lucide-react";
 import { HistoryProvider } from "./context/HistoryContext.jsx";
 import { ThemeProvider, useTheme } from "./components/ThemeProvider.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Validator from "./pages/Validator.jsx";
 import LovExplorer from "./pages/LovExplorer.jsx";
 import Migrations from "./pages/Migrations.jsx";
+import RulesCatalog from "./pages/RulesCatalog.jsx";
 
 const NAV = [
   { to: "/",             label: "Dashboard",    icon: LayoutDashboard },
   { to: "/validator",    label: "Validator",    icon: CheckSquare      },
+  { to: "/rules",        label: "Rules",        icon: BookOpen         },
   { to: "/lov-explorer", label: "LOV Explorer", icon: List             },
   { to: "/migrations",   label: "Migrations",   icon: GitMerge         },
 ];
@@ -66,6 +68,7 @@ function AnimatedRoutes() {
           <Route path="/"             element={<Dashboard />}   />
           <Route path="/validator"    element={<Validator />}   />
           <Route path="/lov-explorer" element={<LovExplorer />} />
+          <Route path="/rules"        element={<RulesCatalog />} />
           <Route path="/migrations"   element={<Migrations />}  />
         </Routes>
       </motion.main>
