@@ -8,8 +8,17 @@ The SHEET constant in each rule identifies which sheet the rule applies to.
 Register new rules in the appropriate list at the bottom of this file.
 """
 
+import re
 import pandas as pd
 from utils.helpers import is_empty, make_result, get_supc, excel_row
+
+# Search Name: ≤20 chars, no spaces, allowed chars (letters, digits, accents, approved specials)
+_SEARCH_NAME_RE = re.compile(
+    r"^[a-zA-Z0-9"
+    r"áÁàÀâÂäÄåÅæÆÇçéÉèÈêÊëËíÍìÌîÎïÏñÑóÓòÒôÔöÖúÚùÙûÛüÜßÿØÝ"
+    r"%&()*+\-./\u2122\u00ae"
+    r"]{1,20}$"
+)
 
 # Sheet names
 SHEET_INVOICE      = "Invoice"
@@ -110,9 +119,38 @@ def rule_lov_customer_group(df: pd.DataFrame) -> list[dict]:
     return results
 
 
+def rule_search_name_invoice(df: pd.DataFrame) -> list[dict]:
+    """Rule C-F1 — Search Name - Invoice: ≤20 chars, no spaces, allowed chars only."""
+    rule_name = "Rule C-F1 — Search Name - Invoice format"
+    col = "Search Name - Invoice"
+    results = []
+    if col not in df.columns:
+        return results
+    for idx, row in df.iterrows():
+        raw = row.get(col)
+        if is_empty(raw):
+            continue
+        val = str(raw).strip()
+        reasons = []
+        if len(val) > 20:
+            reasons.append(f"exceeds 20 characters ({len(val)})")
+        if " " in val:
+            reasons.append("contains spaces")
+        if not _SEARCH_NAME_RE.match(val):
+            reasons.append("contains disallowed characters")
+        if reasons:
+            results.append(make_result(
+                sheet=SHEET_INVOICE, row=excel_row(idx), supc=get_supc(row),
+                rule=rule_name,
+                message=f"Row {excel_row(idx)} — 'Search Name - Invoice' is invalid: {'; '.join(reasons)}.",
+            ))
+    return results
+
+
 ALL_INVOICE_RULES: list = [
     rule_lov_intercompany_trading_partner,   # Rule C-L1
     rule_lov_customer_group,                 # Rule C-L2
+    rule_search_name_invoice,               # Rule C-F1
 ]
 
 def rule_lov_division(df: pd.DataFrame) -> list[dict]:
@@ -180,11 +218,110 @@ def rule_lov_method_of_payment(df: pd.DataFrame) -> list[dict]:
     return results
 
 
+def rule_lov_vat_group_lea_invoice(df: pd.DataFrame) -> list[dict]:
+    """Rule C-L7 — VAT Group: I-STD, I-ZERO, I-RED. Applies to LEA_Invoice."""
+    rule_name = "Rule C-L7 — VAT Group LOV"
+    VAT_LOV = {"I-STD", "I-ZERO", "I-RED"}
+    col = "VAT Group"
+    results = []
+    if col not in df.columns:
+        return results
+    for idx, row in df.iterrows():
+        raw = row.get(col)
+        if is_empty(raw):
+            continue
+        if str(raw).strip() not in VAT_LOV:
+            results.append(make_result(
+                sheet=SHEET_LEA_INVOICE, row=excel_row(idx), supc=get_supc(row),
+                rule=rule_name,
+                message=f"Row {excel_row(idx)} — 'VAT Group' value '{str(raw).strip()}' is invalid. Allowed: I-STD, I-ZERO, I-RED.",
+            ))
+    return results
+
+
+def rule_lov_seasonal_lea_invoice(df: pd.DataFrame) -> list[dict]:
+    """Rule C-L8 — Seasonal: codes 01–07, 99. Applies to LEA_Invoice."""
+    rule_name = "Rule C-L8 — Seasonal LOV"
+    SEASONAL_LOV = {"01", "02", "03", "04", "05", "06", "07", "99"}
+    col = "Seasonal"
+    results = []
+    if col not in df.columns:
+        return results
+    for idx, row in df.iterrows():
+        raw = row.get(col)
+        if is_empty(raw):
+            continue
+        val = str(int(float(str(raw)))).zfill(2) if str(raw).replace(".", "").isdigit() else str(raw).strip()
+        if val not in SEASONAL_LOV:
+            results.append(make_result(
+                sheet=SHEET_LEA_INVOICE, row=excel_row(idx), supc=get_supc(row),
+                rule=rule_name,
+                message=f"Row {excel_row(idx)} — 'Seasonal' value '{val}' is invalid. Allowed: 01–07, 99.",
+            ))
+    return results
+
+
+def rule_lov_status_lea_invoice(df: pd.DataFrame) -> list[dict]:
+    """Rule C-L9 — Status: Active, Delisted, Archived. Applies to LEA_Invoice."""
+    rule_name = "Rule C-L9 — Status LOV"
+    STATUS_LOV = {"Active", "Delisted", "Archived"}
+    col = "Status"
+    results = []
+    if col not in df.columns:
+        return results
+    for idx, row in df.iterrows():
+        raw = row.get(col)
+        if is_empty(raw):
+            continue
+        if str(raw).strip() not in STATUS_LOV:
+            results.append(make_result(
+                sheet=SHEET_LEA_INVOICE, row=excel_row(idx), supc=get_supc(row),
+                rule=rule_name,
+                message=f"Row {excel_row(idx)} — 'Status' value '{str(raw).strip()}' is invalid. Allowed: Active, Delisted, Archived.",
+            ))
+    return results
+
+
 ALL_LEA_INVOICE_RULES: list = [
-    rule_lov_division,            # Rule C-L3
-    rule_lov_method_of_payment,   # Rule C-L4
+    rule_lov_division,                # Rule C-L3
+    rule_lov_method_of_payment,       # Rule C-L4
+    rule_lov_vat_group_lea_invoice,   # Rule C-L7
+    rule_lov_seasonal_lea_invoice,    # Rule C-L8
+    rule_lov_status_lea_invoice,      # Rule C-L9
 ]
-ALL_OS_RULES:          list = []
+def rule_search_name_os(df: pd.DataFrame) -> list[dict]:
+    """Rule C-F2 — Search Name - Delivery: ≤20 chars, no spaces, allowed chars only."""
+    rule_name = "Rule C-F2 — Search Name - Delivery format"
+    col = "Search Name  - Delivery"
+    results = []
+    if col not in df.columns:
+        return results
+    for idx, row in df.iterrows():
+        raw = row.get(col)
+        if is_empty(raw):
+            continue
+        val = str(raw).strip()
+        reasons = []
+        if len(val) > 20:
+            reasons.append(f"exceeds 20 characters ({len(val)})")
+        if " " in val:
+            reasons.append("contains spaces")
+        if not _SEARCH_NAME_RE.match(val):
+            reasons.append("contains disallowed characters")
+        if reasons:
+            results.append(make_result(
+                sheet=SHEET_OS, row=excel_row(idx), supc=get_supc(row),
+                rule=rule_name,
+                message=f"Row {excel_row(idx)} — 'Search Name - Delivery' is invalid: {'; '.join(reasons)}.",
+            ))
+    return results
+
+
+ALL_OS_RULES: list = [
+    rule_search_name_os,   # Rule C-F2
+]
+
+
 def rule_lov_mode_of_delivery(df: pd.DataFrame) -> list[dict]:
     """
     Rule C-L5 — Mode Of Delivery must be a valid code.
@@ -257,9 +394,54 @@ def rule_lov_delivery_terms(df: pd.DataFrame) -> list[dict]:
     return results
 
 
+def rule_lov_seasonal_lea_os(df: pd.DataFrame) -> list[dict]:
+    """Rule C-L10 — Seasonal: codes 01–07, 99. Applies to LEA_OS."""
+    rule_name = "Rule C-L10 — Seasonal LOV"
+    SEASONAL_LOV = {"01", "02", "03", "04", "05", "06", "07", "99"}
+    col = "Seasonal"
+    results = []
+    if col not in df.columns:
+        return results
+    for idx, row in df.iterrows():
+        raw = row.get(col)
+        if is_empty(raw):
+            continue
+        val = str(int(float(str(raw)))).zfill(2) if str(raw).replace(".", "").isdigit() else str(raw).strip()
+        if val not in SEASONAL_LOV:
+            results.append(make_result(
+                sheet=SHEET_LEA_OS, row=excel_row(idx), supc=get_supc(row),
+                rule=rule_name,
+                message=f"Row {excel_row(idx)} — 'Seasonal' value '{val}' is invalid. Allowed: 01–07, 99.",
+            ))
+    return results
+
+
+def rule_lov_status_lea_os(df: pd.DataFrame) -> list[dict]:
+    """Rule C-L11 — Status: Active, Delisted, Archived. Applies to LEA_OS."""
+    rule_name = "Rule C-L11 — Status LOV"
+    STATUS_LOV = {"Active", "Delisted", "Archived"}
+    col = "Status"
+    results = []
+    if col not in df.columns:
+        return results
+    for idx, row in df.iterrows():
+        raw = row.get(col)
+        if is_empty(raw):
+            continue
+        if str(raw).strip() not in STATUS_LOV:
+            results.append(make_result(
+                sheet=SHEET_LEA_OS, row=excel_row(idx), supc=get_supc(row),
+                rule=rule_name,
+                message=f"Row {excel_row(idx)} — 'Status' value '{str(raw).strip()}' is invalid. Allowed: Active, Delisted, Archived.",
+            ))
+    return results
+
+
 ALL_LEA_OS_RULES: list = [
     rule_lov_mode_of_delivery,   # Rule C-L5
     rule_lov_delivery_terms,     # Rule C-L6
+    rule_lov_seasonal_lea_os,    # Rule C-L10
+    rule_lov_status_lea_os,      # Rule C-L11
 ]
 ALL_EMP_INVOICE_RULES: list = []
 ALL_EMP_OS_RULES:      list = []

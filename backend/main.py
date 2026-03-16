@@ -10,8 +10,8 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
-from validator import validate
-from utils.lov_extractor import extract_lovs_from_excel, extract_attribute_groups, extract_brands
+from validator import validate, validate_customer, validate_vendor
+from utils.lov_extractor import get_hardcoded_lovs, extract_attribute_groups, extract_brands, extract_buyer_groups, extract_commodity_codes
 
 # ---------------------------------------------------------------------------
 # App setup
@@ -29,35 +29,33 @@ app.add_middleware(
 REFERENCE_DIR = Path(__file__).resolve().parent.parent / "reference"
 OUTPUT_DIR = Path(__file__).resolve().parent.parent / "output"
 
-
 # ---------------------------------------------------------------------------
-# Helpers
+# LOV cache — loaded once at startup
 # ---------------------------------------------------------------------------
 
-def _load_lovs_df():
+_LOV_DF = None
+
+def _get_lovs_df():
+    global _LOV_DF
+    if _LOV_DF is not None:
+        return _LOV_DF
+
     import pandas as pd
 
-    dfs = []
+    dfs = [get_hardcoded_lovs()]
 
-    flat_path = REFERENCE_DIR / "lovs_flat.csv"
-    if flat_path.exists():
-        dfs.append(pd.read_csv(flat_path))
-    else:
-        lovs_path = REFERENCE_DIR / "LOVs.xlsx"
-        if lovs_path.exists():
-            dfs.append(extract_lovs_from_excel(str(lovs_path)))
+    for fname, fn in [
+        ("Attribute Group.xlsx", extract_attribute_groups),
+        ("Brands.xlsx", extract_brands),
+        ("Buyer Group.xlsx", extract_buyer_groups),
+        ("Commodity code.xlsx", extract_commodity_codes),
+    ]:
+        p = REFERENCE_DIR / fname
+        if p.exists():
+            dfs.append(fn(str(p)))
 
-    already = set(dfs[0]["attribute"].unique()) if dfs else set()
-
-    attr_path = REFERENCE_DIR / "Attribute Group.xlsx"
-    if attr_path.exists() and "Attribute Group ID" not in already:
-        dfs.append(extract_attribute_groups(str(attr_path)))
-
-    brands_path = REFERENCE_DIR / "Brands.xlsx"
-    if brands_path.exists() and "Sysco Brand Code" not in already:
-        dfs.append(extract_brands(str(brands_path)))
-
-    return pd.concat(dfs, ignore_index=True) if dfs else None
+    _LOV_DF = pd.concat(dfs, ignore_index=True)
+    return _LOV_DF
 
 
 # ---------------------------------------------------------------------------
@@ -69,28 +67,61 @@ def health():
     return {"status": "ok"}
 
 
+async def _read(f: UploadFile | None) -> bytes | None:
+    return await f.read() if f else None
+
+
 @app.post("/validate")
 async def validate_files(
-    domain: str = Form("Product"),
+    domain: str = Form("Products"),
     legal_entity: str = Form(""),
-    global_file: UploadFile | None = File(None),
-    local_file: UploadFile | None = File(None),
+    # Products
+    global_file:       UploadFile | None = File(None),
+    local_file:        UploadFile | None = File(None),
+    # Vendors & Customers (shared field names)
+    invoice:           UploadFile | None = File(None),
+    lea_invoice:       UploadFile | None = File(None),
+    os:                UploadFile | None = File(None),
+    lea_os:            UploadFile | None = File(None),
+    # Customers only
+    pt:                UploadFile | None = File(None),
+    employee_invoice:  UploadFile | None = File(None),
+    employee_os:       UploadFile | None = File(None),
 ):
-    """
-    Validate Global and/or Local Product Data Excel files.
+    """Validate migration files for Products, Vendors, or Customers domain."""
 
-    - **domain**: one of Product, Vendor, Customer
-    - **legal_entity**: free-text identifier for the legal entity / ERP source
-    - **global_file**: Global Product Data .xlsx (optional)
-    - **local_file**: Local Product Data .xlsx (optional)
-    """
-    if global_file is None and local_file is None:
-        raise HTTPException(status_code=400, detail="Upload at least one file.")
+    if domain == "Products":
+        if global_file is None and local_file is None:
+            raise HTTPException(status_code=400, detail="Upload at least one file.")
+        report = validate(await _read(global_file), await _read(local_file))
 
-    global_bytes = await global_file.read() if global_file else None
-    local_bytes = await local_file.read() if local_file else None
+    elif domain == "Vendors":
+        files = {
+            "invoice":     await _read(invoice),
+            "lea_invoice": await _read(lea_invoice),
+            "os":          await _read(os),
+            "lea_os":      await _read(lea_os),
+        }
+        if not any(files.values()):
+            raise HTTPException(status_code=400, detail="Upload at least one file.")
+        report = validate_vendor(files)
 
-    report = validate(global_bytes, local_bytes)
+    elif domain == "Customers":
+        files = {
+            "pt":               await _read(pt),
+            "invoice":          await _read(invoice),
+            "lea_invoice":      await _read(lea_invoice),
+            "os":               await _read(os),
+            "lea_os":           await _read(lea_os),
+            "employee_invoice": await _read(employee_invoice),
+            "employee_os":      await _read(employee_os),
+        }
+        if not any(files.values()):
+            raise HTTPException(status_code=400, detail="Upload at least one file.")
+        report = validate_customer(files)
+
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown domain '{domain}'.")
 
     return {
         "domain": domain,
@@ -107,16 +138,27 @@ async def validate_files(
 
 @app.post("/validate/export-csv")
 async def export_csv(
-    domain: str = Form("Product"),
+    domain: str = Form("Products"),
     legal_entity: str = Form(""),
-    global_file: UploadFile | None = File(None),
-    local_file: UploadFile | None = File(None),
+    global_file:       UploadFile | None = File(None),
+    local_file:        UploadFile | None = File(None),
+    invoice:           UploadFile | None = File(None),
+    lea_invoice:       UploadFile | None = File(None),
+    os:                UploadFile | None = File(None),
+    lea_os:            UploadFile | None = File(None),
+    pt:                UploadFile | None = File(None),
+    employee_invoice:  UploadFile | None = File(None),
+    employee_os:       UploadFile | None = File(None),
 ):
     """Run validation and return errors as a downloadable CSV."""
-    global_bytes = await global_file.read() if global_file else None
-    local_bytes = await local_file.read() if local_file else None
-
-    report = validate(global_bytes, local_bytes)
+    if domain == "Products":
+        report = validate(await _read(global_file), await _read(local_file))
+    elif domain == "Vendors":
+        report = validate_vendor({"invoice": await _read(invoice), "lea_invoice": await _read(lea_invoice), "os": await _read(os), "lea_os": await _read(lea_os)})
+    elif domain == "Customers":
+        report = validate_customer({"pt": await _read(pt), "invoice": await _read(invoice), "lea_invoice": await _read(lea_invoice), "os": await _read(os), "lea_os": await _read(lea_os), "employee_invoice": await _read(employee_invoice), "employee_os": await _read(employee_os)})
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown domain '{domain}'.")
 
     buf = io.StringIO()
     writer = csv.DictWriter(buf, fieldnames=["sheet", "row", "supc", "rule", "message"])
@@ -134,10 +176,11 @@ async def export_csv(
 
 @app.get("/lovs")
 def get_lovs(attribute: str | None = None, q: str | None = None):
-    """Return LOV rows, optionally filtered by attribute name and/or text search."""
-    df = _load_lovs_df()
-    if df is None:
-        raise HTTPException(status_code=404, detail="LOV reference data not found.")
+    """Return LOV rows filtered by attribute (required) and optional text search."""
+    if not attribute and not q:
+        return []  # never dump all 20K rows at once
+
+    df = _get_lovs_df()
 
     if attribute:
         df = df[df["attribute"].astype(str).str.strip() == attribute]
@@ -154,8 +197,6 @@ def get_lovs(attribute: str | None = None, q: str | None = None):
 @app.get("/lovs/attributes")
 def get_lov_attributes():
     """Return sorted list of all attribute names."""
-    df = _load_lovs_df()
-    if df is None:
-        raise HTTPException(status_code=404, detail="LOV reference data not found.")
+    df = _get_lovs_df()
     attributes = sorted(df["attribute"].dropna().astype(str).str.strip().unique().tolist())
     return attributes

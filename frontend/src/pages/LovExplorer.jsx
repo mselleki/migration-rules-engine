@@ -18,7 +18,7 @@ function useDebounce(value, delay = 300) {
 
 export default function LovExplorer() {
   const [attributes, setAttributes] = useState([]);
-  const [selectedAttr, setSelectedAttr] = useState("All");
+  const [selectedAttr, setSelectedAttr] = useState("");
   const [search, setSearch] = useState("");
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -34,10 +34,11 @@ export default function LovExplorer() {
   }, []);
 
   useEffect(() => {
+    if (!selectedAttr && !debouncedSearch) { setRows([]); return; }
     setLoading(true);
     setError(null);
     const params = new URLSearchParams();
-    if (selectedAttr !== "All") params.set("attribute", selectedAttr);
+    if (selectedAttr) params.set("attribute", selectedAttr);
     if (debouncedSearch) params.set("q", debouncedSearch);
     fetch(`${API}/lovs?${params}`)
       .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
@@ -70,8 +71,8 @@ export default function LovExplorer() {
               className="text-sm border border-slate-200 dark:border-slate-700 rounded-md px-2.5 py-1.5 bg-white dark:bg-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:outline-none min-w-[180px]"
               aria-label="Filter by attribute"
             >
-              <option value="All">All attributes</option>
-              {attributes.map(a => <option key={a}>{a}</option>)}
+              <option value="">Select an attribute…</option>
+              {attributes.map(a => <option key={a} value={a}>{a}</option>)}
             </select>
 
             <div className="relative flex-1 min-w-[200px] max-w-sm">
@@ -119,7 +120,9 @@ export default function LovExplorer() {
             {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-8" />)}
           </div>
         ) : rows.length === 0 ? (
-          <div className="py-12 text-center text-sm text-slate-400">No LOV rows found.</div>
+          <div className="py-12 text-center text-sm text-slate-400">
+            {selectedAttr || debouncedSearch ? "No LOV rows found." : "Select an attribute to browse its values."}
+          </div>
         ) : (
           <div ref={parentRef} className="overflow-auto" style={{ height: "min(60vh, 560px)" }}>
             <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: "100%", position: "relative" }}>

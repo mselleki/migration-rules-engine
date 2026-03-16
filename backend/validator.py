@@ -1,4 +1,4 @@
-"""Orchestrates validation across both sheets of a Sysco migration Excel file."""
+"""Orchestrates validation across all domain migration files."""
 
 from __future__ import annotations
 
@@ -9,9 +9,19 @@ import pandas as pd
 
 from rules.global_rules import ALL_GLOBAL_RULES
 from rules.local_rules import ALL_LOCAL_RULES
-
-GLOBAL_SHEET = "Global Product Data"
-LOCAL_SHEET = "Local Product Data"
+from rules.customer_rules import (
+    ALL_INVOICE_RULES as C_INVOICE_RULES,
+    ALL_LEA_INVOICE_RULES as C_LEA_INVOICE_RULES,
+    ALL_OS_RULES as C_OS_RULES,
+    ALL_LEA_OS_RULES as C_LEA_OS_RULES,
+    ALL_EMP_INVOICE_RULES, ALL_EMP_OS_RULES, ALL_PT_RULES,
+)
+from rules.vendor_rules import (
+    ALL_INVOICE_RULES as V_INVOICE_RULES,
+    ALL_LEA_INVOICE_RULES as V_LEA_INVOICE_RULES,
+    ALL_OS_RULES as V_OS_RULES,
+    ALL_LEA_OS_RULES as V_LEA_OS_RULES,
+)
 
 
 @dataclass
@@ -57,61 +67,96 @@ def _parse_file(file_bytes: bytes, label: str, report: ValidationReport) -> pd.D
         report.warnings.append(f"'{label}' contains no sheets.")
         return None
 
-    sheet_name = xls.sheet_names[0]
     try:
-        df = xls.parse(sheet_name)
+        df = xls.parse(xls.sheet_names[0])
         return df
     except Exception as exc:
-        report.warnings.append(f"Could not read sheet '{sheet_name}' from '{label}': {exc}")
+        report.warnings.append(f"Could not read sheet from '{label}': {exc}")
         return None
+
+
+def _run_rules(df: pd.DataFrame, rules: list, label: str, report: ValidationReport) -> int:
+    """Apply a list of rule functions to df; return row count."""
+    if df is None or df.empty:
+        return 0
+    row_count = len(df)
+    for rule_fn in rules:
+        try:
+            report.errors.extend(rule_fn(df))
+        except Exception as exc:
+            report.warnings.append(f"Rule '{rule_fn.__name__}' error in '{label}': {exc}")
+    return row_count
 
 
 def validate(
     global_file_bytes: bytes | None,
     local_file_bytes: bytes | None,
 ) -> ValidationReport:
-    """
-    Run all validation rules against the two migration files.
+    """Validate Products domain (Global + Local Product Data)."""
+    report = ValidationReport()
 
-    Parameters
-    ----------
-    global_file_bytes:
-        Raw bytes of the Global Product Data .xlsx file.
-    local_file_bytes:
-        Raw bytes of the Local Product Data .xlsx file.
+    if global_file_bytes is not None:
+        df = _parse_file(global_file_bytes, "Global Product Data", report)
+        report.global_row_count = _run_rules(df, ALL_GLOBAL_RULES, "Global Product Data", report)
+
+    if local_file_bytes is not None:
+        df = _parse_file(local_file_bytes, "Local Product Data", report)
+        report.local_row_count = _run_rules(df, ALL_LOCAL_RULES, "Local Product Data", report)
+
+    return report
+
+
+def validate_customer(files: dict[str, bytes | None]) -> ValidationReport:
+    """
+    Validate Customers domain.
+
+    Expected keys in `files`:
+      pt, invoice, lea_invoice, os, lea_os, employee_invoice, employee_os
     """
     report = ValidationReport()
 
-    # --- Global Product Data ---
-    if global_file_bytes is not None:
-        global_df = _parse_file(global_file_bytes, "Global Product Data", report)
-        if global_df is not None:
-            if global_df.empty:
-                report.warnings.append("The Global Product Data file is empty.")
-            else:
-                report.global_row_count = len(global_df)
-                for rule_fn in ALL_GLOBAL_RULES:
-                    try:
-                        report.errors.extend(rule_fn(global_df))
-                    except Exception as exc:
-                        report.warnings.append(
-                            f"Rule '{rule_fn.__name__}' raised an unexpected error: {exc}"
-                        )
+    sheet_rules = {
+        "pt":               (ALL_PT_RULES,         "PT"),
+        "invoice":          (C_INVOICE_RULES,       "Invoice"),
+        "lea_invoice":      (C_LEA_INVOICE_RULES,   "LEA Invoice"),
+        "os":               (C_OS_RULES,            "OS"),
+        "lea_os":           (C_LEA_OS_RULES,        "LEA OS"),
+        "employee_invoice": (ALL_EMP_INVOICE_RULES, "Employee Invoice"),
+        "employee_os":      (ALL_EMP_OS_RULES,      "Employee OS"),
+    }
 
-    # --- Local Product Data ---
-    if local_file_bytes is not None:
-        local_df = _parse_file(local_file_bytes, "Local Product Data", report)
-        if local_df is not None:
-            if local_df.empty:
-                report.warnings.append("The Local Product Data file is empty.")
-            else:
-                report.local_row_count = len(local_df)
-                for rule_fn in ALL_LOCAL_RULES:
-                    try:
-                        report.errors.extend(rule_fn(local_df))
-                    except Exception as exc:
-                        report.warnings.append(
-                            f"Rule '{rule_fn.__name__}' raised an unexpected error: {exc}"
-                        )
+    for key, (rules, label) in sheet_rules.items():
+        file_bytes = files.get(key)
+        if file_bytes is None:
+            continue
+        df = _parse_file(file_bytes, label, report)
+        rows = _run_rules(df, rules, label, report)
+        report.global_row_count += rows
+
+    return report
+
+
+def validate_vendor(files: dict[str, bytes | None]) -> ValidationReport:
+    """
+    Validate Vendors domain.
+
+    Expected keys: invoice, lea_invoice, os, lea_os
+    Rules: Search Name, Intercompany, Method of Payment, VAT Group,
+    Delivery Terms, Mode of Delivery, Status.
+    """
+    report = ValidationReport()
+    sheet_rules = {
+        "invoice":     (V_INVOICE_RULES,     "Invoice"),
+        "lea_invoice": (V_LEA_INVOICE_RULES, "LEA Invoice"),
+        "os":          (V_OS_RULES,          "OS"),
+        "lea_os":      (V_LEA_OS_RULES,      "LEA OS"),
+    }
+    for key, (rules, label) in sheet_rules.items():
+        file_bytes = files.get(key)
+        if file_bytes is None:
+            continue
+        df = _parse_file(file_bytes, label, report)
+        rows = _run_rules(df, rules, label, report)
+        report.global_row_count += rows
 
     return report

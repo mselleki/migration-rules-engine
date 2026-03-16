@@ -15,7 +15,29 @@ import {
 } from "@tanstack/react-table";
 
 const API = "/api";
-const DOMAINS = ["Product", "Vendor", "Customer"];
+const DOMAINS = ["Products", "Vendors", "Customers"];
+
+const DOMAIN_FILES = {
+  Products: [
+    { key: "global_file", label: "Global Product Data" },
+    { key: "local_file",  label: "Local Product Data"  },
+  ],
+  Vendors: [
+    { key: "invoice",     label: "Invoice"     },
+    { key: "lea_invoice", label: "LEA Invoice"  },
+    { key: "os",          label: "OS"           },
+    { key: "lea_os",      label: "LEA OS"       },
+  ],
+  Customers: [
+    { key: "pt",               label: "PT"               },
+    { key: "invoice",          label: "Invoice"          },
+    { key: "lea_invoice",      label: "LEA Invoice"      },
+    { key: "os",               label: "OS"               },
+    { key: "lea_os",           label: "LEA OS"           },
+    { key: "employee_invoice", label: "Employee Invoice"  },
+    { key: "employee_os",      label: "Employee OS"       },
+  ],
+};
 
 function fmtBytes(b) {
   if (!b) return "";
@@ -166,25 +188,31 @@ export default function Validator() {
   const location = useLocation();
   const { runs, addRun } = useHistory();
 
-  const [domain, setDomain] = useState(location.state?.domain ?? "Product");
-  const [globalFile, setGlobalFile] = useState(null);
-  const [localFile, setLocalFile]   = useState(null);
-  const [loading, setLoading]   = useState(false);
-  const [report, setReport]     = useState(null);
-  const [error, setError]       = useState(null);
+  const [domain, setDomain]   = useState(location.state?.domain ?? "Products");
+  const [files, setFiles]     = useState({});
+  const [loading, setLoading] = useState(false);
+  const [report, setReport]   = useState(null);
+  const [error, setError]     = useState(null);
+
+  // Reset files whenever domain changes
+  const handleDomainChange = useCallback((d) => { setDomain(d); setFiles({}); setReport(null); setError(null); }, []);
+
+  const setFile = useCallback((key, file) => setFiles(prev => ({ ...prev, [key]: file })), []);
+
+  const buildFormData = (d, f) => {
+    const fd = new FormData();
+    fd.append("domain", d);
+    DOMAIN_FILES[d].forEach(({ key }) => { if (f[key]) fd.append(key, f[key]); });
+    return fd;
+  };
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!globalFile && !localFile) return;
+    const anyFile = DOMAIN_FILES[domain].some(({ key }) => files[key]);
+    if (!anyFile) return;
     setLoading(true); setError(null); setReport(null);
-
-    const fd = new FormData();
-    fd.append("domain", domain);
-    if (globalFile) fd.append("global_file", globalFile);
-    if (localFile)  fd.append("local_file", localFile);
-
     try {
-      const res = await fetch(`${API}/validate`, { method: "POST", body: fd });
+      const res = await fetch(`${API}/validate`, { method: "POST", body: buildFormData(domain, files) });
       if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.detail || `HTTP ${res.status}`); }
       const data = await res.json();
       setReport(data);
@@ -197,19 +225,15 @@ export default function Validator() {
   }
 
   async function handleExportCsv() {
-    const fd = new FormData();
-    fd.append("domain", domain);
-    if (globalFile) fd.append("global_file", globalFile);
-    if (localFile)  fd.append("local_file",  localFile);
-    const res = await fetch(`${API}/validate/export-csv`, { method: "POST", body: fd });
+    const res = await fetch(`${API}/validate/export-csv`, { method: "POST", body: buildFormData(domain, files) });
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url;
-    a.download = `validation_errors_${domain}_${report?.legal_entity || "unknown"}.csv`;
+    a.download = `validation_errors_${domain}.csv`;
     a.click(); URL.revokeObjectURL(url);
   }
 
-  const canSubmit = !loading && (!!globalFile || !!localFile);
+  const canSubmit = !loading && DOMAIN_FILES[domain].some(({ key }) => files[key]);
 
   return (
     <div className="space-y-5">
@@ -230,7 +254,7 @@ export default function Validator() {
               {/* Domain */}
               <div className="space-y-1">
                 <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Domain</label>
-                <Select value={domain} onValueChange={setDomain}>
+                <Select value={domain} onValueChange={handleDomainChange}>
                   <SelectTrigger aria-label="Select domain"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {DOMAINS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
@@ -241,8 +265,9 @@ export default function Validator() {
               {/* File zones */}
               <div className="space-y-2">
                 <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Files</label>
-                <FileDropZone label="Global Product Data (.xlsx)" file={globalFile} onFile={setGlobalFile} />
-                <FileDropZone label="Local Product Data (.xlsx)"  file={localFile}  onFile={setLocalFile}  />
+                {DOMAIN_FILES[domain].map(({ key, label }) => (
+                  <FileDropZone key={key} label={`${label} (.xlsx)`} file={files[key] ?? null} onFile={f => setFile(key, f)} />
+                ))}
               </div>
 
               <Button type="submit" disabled={!canSubmit} className="w-full" size="md">
