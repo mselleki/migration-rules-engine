@@ -1,5 +1,28 @@
+# Python
 __pycache__/
 *.pyc
 *.pyo
 .venv/
-*.xlsx
+backend/.venv/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Reference data (large binary/generated files — regenerate locally)
+reference/LOVs.xlsx
+reference/lovs_flat.csv
+reference/lovs_output.txt
+
+# Input files (not committed — placed locally per legal entity)
+input/Product/*.xlsx
+input/Vendor/*.xlsx
+input/Customer/*.xlsx
+
+# Output
+output/*.csv
+output/*.xlsx
+
+# OS
+.DS_Store
+Thumbs.db

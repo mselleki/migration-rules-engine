@@ -1,7 +1,7 @@
 # Migration Rules Engine — Validation Rules Reference
 
-**Sheet covered:** Global Product Data
-**Last updated:** 2026-03-09
+**Domains covered:** Product (Global + Local), Customer
+**Last updated:** 2026-03-16
 **LOV source:** Stibo Master Data Dictionary MVP & Phase 1
 
 ---
@@ -310,10 +310,14 @@ The following characters are **not allowed**:
 
 **Column:** `Search Name`
 
-- Alphanumeric characters only (`a-z`, `A-Z`, `0-9`)
-- No spaces
-- No special characters
 - Maximum **20 characters**
+- No spaces
+- Allowed characters: `a-z A-Z 0-9` plus accented letters (see below) and the approved special characters
+- **Approved special characters:** `% & ( ) * + - . / ™ ® Ø`
+- **Forbidden special characters:** `, ! " # $ ' : ; < = > ? @ [ \ ] ^ _ ` { | } ~`
+- **Allowed accented letters:** á Á à À â Â ä Ä å Å æ Æ Ç ç é É è È ê Ê ë Ë í Í ì Ì î Î ï Ï ñ Ñ ó Ó ò Ò ô Ô ö Ö ú Ú ù Ù û Û ü Ü ß ÿ Ý
+
+> The same approved/forbidden special character lists apply to all attribute fields across all domains.
 
 **Error:** `Row {n} — 'Search Name' is invalid: {reason(s)}`
 
@@ -520,6 +524,83 @@ Almonds, Barley, Brazil Nuts, Cashew Nuts, Celery and products thereof, Gluten a
 
 ---
 
+### Rule L-Brand — Brand Key
+
+**Column:** `Brand Key`
+**LOV source:** `reference/Brands.xlsx`
+
+Must be a valid **Sysco (Own) Brand Code** (96 values, e.g. `BRAKES`, `EKOFISK`, `MIGI`) **or** a valid **Vendor Brand Code** (10 335 values, e.g. `EU441`, `EU661`).
+
+**Error:** `Row {n} — 'Brand Key' value '{value}' is not a recognised Sysco or Vendor brand code.`
+
+---
+
+### Rule L-Temp — Min / Max Temperature
+
+**Columns:** `Min Temperature`, `Max Temperature`
+**LOV source:** temp
+
+| Code | Description |
+|---|---|
+| `TEMP18` | -18°C (0°F) |
+| `TEMP0` | 0°C (32°F) |
+| `TEMP5` | 5°C (41°F) |
+| `TEMP8` | 8°C (46.4°F) |
+
+**Error:** `Row {n} — '{column}' value '{value}' is invalid. Allowed: TEMP18, TEMP0, TEMP5, TEMP8.`
+
+---
+
+### Rule L-VAT — Item VAT Purchasing / Selling
+
+**Columns:** `Item VAT - Purchasing`, `Item VAT - Selling`
+**LOV source:** vat_group
+
+| Code | Description |
+|---|---|
+| `I-STD` | Standard – 20% |
+| `I-ZERO` | Zero Rated – 0% |
+| `I-RED` | Reduced – 5% |
+
+**Error:** `Row {n} — '{column}' value '{value}' is invalid. Allowed: I-STD, I-ZERO, I-RED.`
+
+---
+
+### Rule L-Seasonal — Seasonal
+
+**Column:** `Seasonal`
+**LOV source:** Seasonal
+
+| Code | Description |
+|---|---|
+| `01` | Closed for Spring |
+| `02` | Closed for Summer |
+| `03` | Closed for Autumn |
+| `04` | Closed for Winter |
+| `05` | Closed for Summer, Spring |
+| `06` | Closed for Autumn, Winter |
+| `07` | Closed for Autumn, Winter, Spring |
+| `99` | Non-Seasonal |
+
+**Error:** `Row {n} — 'Seasonal' value '{value}' is invalid. Allowed: 01–07, 99.`
+
+---
+
+### Rule L-Status — Status
+
+**Column:** `Status`
+**LOV source:** Status
+
+| Value |
+|---|
+| `Active` |
+| `Delisted` |
+| `Archived` |
+
+**Error:** `Row {n} — 'Status' value '{value}' is invalid. Allowed: Active, Delisted, Archived.`
+
+---
+
 ### Rule L9 — Generic GTIN
 
 **Column:** `Generic GTIN`
@@ -543,26 +624,186 @@ Only checked when the column is populated. Used when a generic/placeholder GTIN 
 
 ---
 
+---
+
+## D — Customer Rules (`customer_rules.py`)
+
+Customer files contain **7 templates** (sheets): `PT`, `Invoice`, `LEA_Invoice`, `OS`, `LEA_OS`, `EmployeeInvoice`, `EmployeeOS`.
+
+### Rule C1 — Intercompany / Trading Partner
+
+**Sheet:** Invoice
+**Column:** `Intercompany/Trading Partner`
+
+| Code | Entity |
+|---|---|
+| `GB01` | Sysco GB (old Brake Bros Ltd) |
+| `GB57` | Medina Quay Meats Limited |
+| `GB58` | Fresh Direct UK Ltd |
+| `GB59` | Kent Frozen Foods |
+| `GB80` | Sysco Foods NI Limited |
+| `IE01` | Sysco Foods Ireland UC |
+| `IE02` | Classic Drinks |
+| `IE03` | Ready Chef |
+| `IE90` | SMS Int'l Resources Ireland Unlimited |
+| `HK91` | SMS GPC International Limited |
+| `HK92` | SMS GPC International Resources Limited |
+| `SE99` | Menigo Group |
+| `SE01` | Menigo Food Service AB |
+| `SE02` | Fruktservice i Helsingborg AB |
+| `SE03` | Ekofisk |
+| `SE04` | Servicestyckarna AB |
+| `SE05` | Restaurangakademien |
+
+**Error:** `Row {n} — 'Intercompany/Trading Partner' value '{value}' is not a recognised entity code.`
+
+---
+
+### Rule C2 — Customer Group
+
+**Sheet:** Invoice
+**Column:** `Customer Group`
+
+| Code |
+|---|
+| `BRAKES` · `COUNTRY_CHOICE` · `BCE` · `KFF` · `FRESH_DIRECT` · `MEDINA` · `SYSCO_ROI` · `SYSCO_NI` · `CLASSIC_DRINKS` · `READY_CHEF` · `MENIGO` · `SERVICESTYCKARNA` · `FRUKTSERVICE` · `EKOFISK` · `SYSCO_FRANCE` · `LAG` |
+
+**Error:** `Row {n} — 'Customer Group' value '{value}' is not a recognised customer group code.`
+
+---
+
+### Rule C3 — Division
+
+**Sheet:** LEA_Invoice
+**Column:** `Division`
+
+| Code | Description |
+|---|---|
+| `TRS` | Territory Street Accounts |
+| `TRP` | Territory Program |
+| `LCC` | Local Contract Customer |
+| `CMU` | Corporate Multi Unit |
+| `OTH` | Bid & Other |
+| `WHL` | Wholesale |
+| `MIS` | Miscellaneous |
+
+**Error:** `Row {n} — 'Division' value '{value}' is invalid. Allowed: TRS, TRP, LCC, CMU, OTH, WHL, MIS.`
+
+---
+
+### Rule C4 — Method of Payment
+
+**Sheet:** LEA_Invoice
+**Column:** `Method of Payment`
+
+| Code | Description |
+|---|---|
+| `C_DD_BASE` | Direct Debit Business Base Currency |
+| `C_DD_OTHER` | Direct Debit Foreign Currency |
+| `C_CASH` | Cash Payment |
+| `C_CARD` | Debit/Credit Card Payment |
+| `C_STRDCARD` | Purchase/Stored Card Payment |
+| `C_BANK` | Direct Payment in Bank |
+| `C_SWISH` | Swish Payment |
+| `C_AUTOGIRO` | Autogiro Payment |
+| `C_CHEQUE` | Cheque Payment |
+| `C_CONTRA` | Cust/Vend Contra Account |
+| `V_BACS_BAS` | BACS Business Base Currency |
+| `V_BACS_OTH` | BACS Foreign Currency |
+| `V_CASH` | Cash Payment |
+| `V_CARD` | Credit Card Payment |
+| `V_SWISH` | Swish Payment |
+| `V_AUTOGIRO` | Autogiro Payment |
+| `V_BANK` | Direct Payment in Bank |
+| `V_CONTRA` | Cust/Vend Contra Account |
+| `V_DD_BASE` | Direct Debit Business Base Currency |
+| `V_DD_OTHER` | Direct Debit Foreign Currency |
+| `V_CHEQUE` | Cheque Payment |
+
+**Error:** `Row {n} — 'Method of Payment' value '{value}' is not a recognised payment method code.`
+
+---
+
+### Rule C5 — Mode of Delivery
+
+**Sheet:** LEA_OS
+**Column:** `Mode of Delivery`
+
+| Code | Description |
+|---|---|
+| `3PL` | Outsourced transportation and warehousing |
+| `AIR` | Goods delivered by air |
+| `AMB_TRK` | Non-temp controlled trucks |
+| `ANY` | Default any vehicle type |
+| `BACK_HAUL` | Sysco fleet collects from supplier |
+| `BICYCLE` | Delivery by bike |
+| `BOAT` | Goods shipped by sea |
+| `BULK_CRR` | Large ships for bulk food |
+| `COLD_STRG` | Temp-controlled logistics |
+| `CONSOL` | Multiple vendors/customers, one transport |
+| `CONT_SHIP` | Goods transport via shipping containers |
+| `COURIER` | Small parcel deliveries via 3PL |
+| `CROSS_DOCK` | Goods moved internally before final receipt |
+| `CUST_COLL` | Customers pick up at warehouse |
+| `DIRECT` | Items shipped directly from supplier |
+| `DRON_DLV` | Delivered via drones |
+| `FROZ_TRK` | Trucks with freezers for frozen items |
+| `INTERMOD` | Multiple transport modes |
+| `PICKUP` | Collection from a designated location |
+| `PIPELINE` | Delivery via pipelines |
+| `REFR_TRK` | Temp-controlled truck for perishables |
+| `TRAIN` | Transport by rail |
+| `TRUCK` | Goods delivered by road |
+
+**Error:** `Row {n} — 'Mode of Delivery' value '{value}' is not a recognised delivery mode code.`
+
+---
+
+### Rule C6 — Delivery Terms (Incoterms)
+
+**Sheet:** LEA_OS
+**Column:** `Delivery Terms`
+
+| Code | Description |
+|---|---|
+| `CFR` | Cost & Freight (C&F) |
+| `CIF` | Cost, Insurance & Freight |
+| `CIP` | Carriage & Insurance Paid |
+| `CPT` | Carriage Paid To |
+| `DAP` | Delivered At Place |
+| `DDP` | Delivered Duty Paid |
+| `DPU` | Delivered At Place Unloaded |
+| `EXW` | Ex Works |
+| `FAS` | Free Alongside Ship |
+| `FCA` | Free Carrier |
+| `FOB` | Free On Board |
+
+**Error:** `Row {n} — 'Delivery Terms' value '{value}' is not a recognised Incoterms code.`
+
+---
+
 ## Summary
+
+### Product — Global Product Data
 
 | Rule | Category | Key column(s) | Status |
 |---|---|---|---|
-| Rule 1 | Business | Legally packaged to be sold as a split? | ✅ Active |
+| Rule 1 | Business | Split attributes required | ✅ Active |
 | Rule 2 | Business | Split vs Case dimensions | ✅ Active |
-| Rule 4 | Business | Shelf Life Sysco / Manufacturer | ✅ Active |
-| Rule 5 | Business | Attribute Group ID + nutritional columns | ✅ Active |
-| Rule 8 | Business | Catch Weight + Range From/To | ✅ Active |
-| Rule 9 | Business | Does Product Have A Taric Code? + Taric Code | ✅ Active |
+| Rule 4 | Business | Shelf Life Sysco < Manufacturer | ✅ Active |
+| Rule 5 | Business | Non-food: no nutritional data | ✅ Active |
+| Rule 8 | Business | Catch Weight Range From ≤ To | ✅ Active |
+| Rule 9 | Business | Taric Code required when flagged | ✅ Active |
 | Rule 10 | Business | 45 mandatory fields | ✅ Active |
-| Rule 3 | Formatting | GTIN-Outer | ✅ Active |
+| Rule 3 | Formatting | GTIN-Outer (8/12/13/14 digits) | ✅ Active |
 | Rule F1 | Formatting | GTIN-Inner | ✅ Active |
 | Rule F2 | Formatting | Attribute Group ID (8 digits, zero-padded) | ✅ Active |
-| Rule F3 | Formatting | Taric Code/Commodity Code | ✅ Active |
+| Rule F3 | Formatting | Taric Code (8 digits) | ✅ Active |
 | Rule F4 | Formatting | 11 integer columns | ✅ Active |
 | Rule F5 | Formatting | Weights, dimensions, nutritional | ✅ Active |
-| Rule F6 | Formatting | Country of Origin (4 columns) | ✅ Active |
-| Rule F7 | Formatting | Description special characters (5 columns) | ✅ Active |
-| Rule F8 | Formatting | Search Name (alphanumeric, no spaces, max 20 chars) | ✅ Active |
+| Rule F6 | Formatting | Country of Origin (ISO alpha-2) | ✅ Active |
+| Rule F7 | Formatting | Description special characters | ✅ Active |
+| Rule F8 | Formatting | Search Name (≤20 chars, no spaces, allowed chars) | ✅ Active |
 | Rule L0 | LOV | Attribute Group ID (620+ OSD IDs) | ✅ Active |
 | Rule L1 | LOV | 18 Yes/No columns | ✅ Active |
 | Rule L2 | LOV | 28 allergen columns (0/1/2) | ✅ Active |
@@ -573,3 +814,31 @@ Only checked when the column is populated. Used when a generic/placeholder GTIN 
 | Rule L7 | LOV | Biodegradable or Compostable (3 values) | ✅ Active |
 | Rule L8 | LOV | Nutritional Unit (G, ML) | ✅ Active |
 | Rule L9 | LOV | Generic GTIN (9 values) | ✅ Active |
+| Rule L-Brand | LOV | Brand Key (96 Sysco + 10 335 Vendor codes) | ✅ Active |
+| Rule L-Temp | LOV | Min/Max Temperature (4 codes) | ✅ Active |
+| Rule L-VAT | LOV | Item VAT Purchasing/Selling (I-STD/I-ZERO/I-RED) | ✅ Active |
+| Rule L-Seasonal | LOV | Seasonal (codes 01–07, 99) | ✅ Active |
+| Rule L-Status | LOV | Status (Active/Delisted/Archived) | ✅ Active |
+
+### Product — Local Product Data
+
+| Rule | Category | Description | Status |
+|---|---|---|---|
+| — | — | No rules implemented yet | ⏳ Planned |
+
+### Customer
+
+| Rule | Sheet | Column | Status |
+|---|---|---|---|
+| C1 | Invoice | Intercompany/Trading Partner (17 entity codes) | ✅ Active |
+| C2 | Invoice | Customer Group (16 codes) | ✅ Active |
+| C3 | LEA_Invoice | Division (7 codes) | ✅ Active |
+| C4 | LEA_Invoice | Method of Payment (21 codes) | ✅ Active |
+| C5 | LEA_OS | Mode of Delivery (23 codes) | ✅ Active |
+| C6 | LEA_OS | Delivery Terms / Incoterms (11 codes) | ✅ Active |
+
+### Vendor
+
+| Rule | Category | Description | Status |
+|---|---|---|---|
+| — | — | No rules implemented yet | ⏳ Planned |
