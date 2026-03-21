@@ -15,6 +15,7 @@ from rules.customer_rules import (
     ALL_OS_RULES as C_OS_RULES,
     ALL_LEA_OS_RULES as C_LEA_OS_RULES,
     ALL_EMP_INVOICE_RULES, ALL_EMP_OS_RULES, ALL_PT_RULES,
+    rule_copy_invoice_address_match,
 )
 from rules.vendor_rules import (
     ALL_INVOICE_RULES as V_INVOICE_RULES,
@@ -125,13 +126,24 @@ def validate_customer(files: dict[str, bytes | None]) -> ValidationReport:
         "employee_os":      (ALL_EMP_OS_RULES,      "Employee OS"),
     }
 
+    dfs: dict[str, pd.DataFrame | None] = {}
     for key, (rules, label) in sheet_rules.items():
         file_bytes = files.get(key)
         if file_bytes is None:
             continue
         df = _parse_file(file_bytes, label, report)
+        dfs[key] = df
         rows = _run_rules(df, rules, label, report)
         report.global_row_count += rows
+
+    # Cross-sheet rule: Employee OS address must match Invoice address
+    df_invoice = dfs.get("invoice")
+    df_emp_os  = dfs.get("employee_os")
+    if df_invoice is not None and df_emp_os is not None:
+        try:
+            report.errors.extend(rule_copy_invoice_address_match(df_emp_os, df_invoice))
+        except Exception as exc:
+            report.warnings.append(f"Rule 'rule_copy_invoice_address_match' error: {exc}")
 
     return report
 

@@ -403,8 +403,15 @@ TEXT_COLS = [
     "Marketing Description",
     "Warehouse Description",
     "Invoice Description",
+    "Latin Fish Name",
     "Description Text",
     "True Vendor Name",
+    "Cooking Instructions",
+    "Defrosting Guidelines",
+    "Handling Instructions",
+    "Storage Guidelines",
+    "Cooking Warning",
+    "Food Safety Tips",
 ]
 
 # Keep old name as alias so nothing else breaks
@@ -597,22 +604,34 @@ def rule_catch_weight_conditional(df: pd.DataFrame) -> list[dict]:
 
 
 def rule_taric_code_conditional(df: pd.DataFrame) -> list[dict]:
+    """Rule 9 — Taric Code is conditional on 'Does Product Have A Taric Code?'.
+
+    If Yes → Taric Code/Commodity Code must be filled.
+    If No  → Taric Code/Commodity Code must be empty.
     """
-    Rule 9 — Taric Code required when 'Does Product Have A Taric Code?' is Yes.
-    """
-    rule_name = "Rule 9 — Taric Code required when flagged"
+    rule_name = "Rule 9 — Taric Code conditional"
     results = []
     if COL_HAS_TARIC not in df.columns:
         return results
 
-    taric_rows = df[df[COL_HAS_TARIC].astype(str).str.strip() == "Yes"]
-    for idx, row in taric_rows.iterrows():
+    flag_col = df[COL_HAS_TARIC].astype(str).str.strip()
+
+    for idx, row in df[flag_col == "Yes"].iterrows():
         if COL_TARIC in df.columns and is_empty(row.get(COL_TARIC)):
             results.append(make_result(
                 sheet=SHEET, row=excel_row(idx), supc=get_supc(row),
                 rule=rule_name,
-                message=f"Row {excel_row(idx)} — 'Does Product Have A Taric Code?' is Yes but '{COL_TARIC}' is empty",
+                message=f"Row {excel_row(idx)} — 'Does Product Have A Taric Code?' is Yes but '{COL_TARIC}' is empty.",
             ))
+
+    for idx, row in df[flag_col == "No"].iterrows():
+        if COL_TARIC in df.columns and not is_empty(row.get(COL_TARIC)):
+            results.append(make_result(
+                sheet=SHEET, row=excel_row(idx), supc=get_supc(row),
+                rule=rule_name,
+                message=f"Row {excel_row(idx)} — 'Does Product Have A Taric Code?' is No but '{COL_TARIC}' is filled.",
+            ))
+
     return results
 
 
@@ -1080,12 +1099,682 @@ def rule_lov_status(df: pd.DataFrame) -> list[dict]:
     return results
 
 
+def rule_lov_generic_gtin(df: pd.DataFrame) -> list[dict]:
+    """Rule L9 — Generic GTIN must be one of the 8 recognised generic codes."""
+    rule_name = "Rule L9 — Generic GTIN LOV"
+    GENERIC_GTIN_LOV = {
+        "10000000000009", "20000000000009", "30000000000009", "40000000000009",
+        "50000000000009", "60000000000009", "70000000000009", "80000000000009",
+    }
+    col = "Generic GTIN"
+    results = []
+    if col not in df.columns:
+        return results
+    for idx, row in df.iterrows():
+        raw = row.get(col)
+        if is_empty(raw):
+            continue
+        # Normalise: Excel may read as integer, strip decimals
+        val = str(raw).strip()
+        if val.endswith(".0"):
+            val = val[:-2]
+        if val not in GENERIC_GTIN_LOV:
+            results.append(make_result(
+                sheet=SHEET, row=excel_row(idx), supc=get_supc(row),
+                rule=rule_name,
+                message=f"Row {excel_row(idx)} — 'Generic GTIN' value '{val}' is not a recognised generic GTIN code.",
+            ))
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Rule L10 — First & Second Word LOV
+# The "First & Second Word" field must contain an exact "WORD1 WORD2" pair
+# from the approved list. Comparison is case-insensitive; stored in upper case.
+# ---------------------------------------------------------------------------
+_FIRST_SECOND_WORD_MAP: dict[str, tuple[str, ...]] = {
+    "AIR": ("FRESHENER",),
+    "ALCOHOL": ("GEL",),
+    "ALMOND": ("CHIP","FLAKED","FRESH","GROUND","ICING","SLI","VEGAN","WHL"),
+    "ANISE": ("STAR",),
+    "APPLE": ("CARAMEL","CRUMBLE","FRESH","GREEN","PACK","RED","SLICES","TREAT"),
+    "APRICOT": ("DRIED","HALF","PUREE"),
+    "APRON": ("COTTON","PLASTIC"),
+    "ARANCINI": ("PEA","PORCINI"),
+    "ARROWROOT": ("GROUND",),
+    "ARTICHOKE": ("FRESH","HEART"),
+    "ASPARAGUS": ("FRESH","FROZEN"),
+    "AUBERGINE": ("FRESH",),
+    "AVOCADO": ("FRESH",),
+    "BABY": ("CHORIZO",),
+    "BACON": ("BACK","BIT","CHIP","GREEN","SLI","SMOKED","STRIP","VEGAN"),
+    "BAG": ("BAGUETTE","BROWN","FOOD","PACK","PAPER","PLASTIC"),
+    "BAGEL": ("MULTISEED","PLAIN"),
+    "BAGUETTE": ("BARRA","HINGED"),
+    "BAKING": ("ADDITIVE","MIX","SODA"),
+    "BANANA": ("FRESH","PUREE"),
+    "BAR": ("GRANOLA",),
+    "BARLEY": ("PEARL",),
+    "BASA": ("FILLETS",),
+    "BASE": ("BAKER","BEEF","CAKE","CHICKEN"),
+    "BASS": ("SEA",),
+    "BAY": ("LEAVES",),
+    "BBQ": ("CHICKEN","CHKN"),
+    "BEAN": ("BAKED","BLACK","BORLOTTI","BURGER","BUTTER","CANNELLINI","CHILI","CURD","GREEN","HARICOT","KIDNEY","LENTIL","RED","ROLL","VANILLA","WHOLE"),
+    "BEAR": ("GROUND",),
+    "BEEF": ("AND","BLADE","BONE","BRISKET","BURGER","CHEEK","CORNED","CUBE","DICED","EYE","FAT","FILLET","FORE-RIB","GROUND","KIDNEY","KNUCKLE","LOIN","MEAT","MINCE","RIB","RIBEYE","ROAST","ROLL","ROUND","RUMP","SALT","SHIN","SILVERSIDE","SLI","SLICED","STEAK","STRIP","TAIL","TOMATO","TONGUE","TOP","TRIM","WHOLE"),
+    "BEER": ("GINGER","IPA"),
+    "BEET": ("FRESH","ROOT"),
+    "BERRY": ("DRIED","FRESH","WILD"),
+    "BIN": ("WASTE",),
+    "BISCUIT": ("CHEESE","MACAROON","MIX","TEA"),
+    "BLACKBERRY": ("FRESH",),
+    "BLEACH": ("LIQUID",),
+    "BLUEBERRY": ("BIT",),
+    "BOAR": ("BURGER","GROUND","WILD"),
+    "BOARD": ("WOOD",),
+    "BOK": ("CHOY",),
+    "BOTTLE": ("GLASS","SPRAY"),
+    "BOWL": ("PAPER",),
+    "BOX": ("COOKIE","FOOD"),
+    "BREAD": ("BAGUETTE","BROWN","BUN","CHEESE","CIABATTA","CRUMB","ENGLISH","FLAT","FRENCH","GARLIC","GRAIN","LOAF","PITA","PLAIN","ROLL","SLICED","SOURDOUGH","THICK","WHEAT","WHITE"),
+    "BREAM": ("SEA","WHOLE"),
+    "BROCCOLI": ("FLORET","FRESH","STEM"),
+    "BROOM": ("HEAD",),
+    "BROTH": ("BEEF","CHICKEN"),
+    "BROWNIE": ("CAKE","CARAMEL","CHOC","CHOCOLATE","FUDGE"),
+    "BRUSH": ("PASTRY",),
+    "BULGAR": ("WHEAT",),
+    "BUN": ("BRIOCHE","BURGER","CHARCOAL","CHOCOLATE","COLA","GLAZED","HIRATA","MINIATURE","ONION","PLAIN","PRETZEL","ROLL","SESAME","WHITE"),
+    "BURGER": ("BEEF","BOX","VEGAN","VEGETABLE"),
+    "BUTTER": ("BLEND","BUN","PATS","SOLID"),
+    "CABBAGE": ("CHINESE","FRESH","GREEN","RED","SAVOY","WHITE"),
+    "CAKE": ("ALMOND","ANGEL","APPLE","CARAMEL","CARROT","CHERRY","CHOC","CHOCOLATE","COFFEE","CREAM","CUSTARD","FRUIT","FUDGE","GATEAU","LEMON","LOAF","MINI","RED","SANDWICH","SHEET","SHORT","SPONGE","STRAWBERRY","TEA","TIRAMISU","TOFFEE","TRAY"),
+    "CALZONE": ("CHEESE",),
+    "CANDLE": ("SET",),
+    "CANDY": ("BAR","BEET","CARAMEL","CHERRY","CHOC","CORN","CRACKER","GUMMY","HARD","JELLY","LEMON","LOLLIPOP","LOLLYPOP","MINT","MIX","SPRINKLE","STARBURST","SWEET"),
+    "CAP": ("WHITE",),
+    "CAPER": ("CAPOTE","WHOLE"),
+    "CAPERS": ("BABY",),
+    "CARAMEL": ("MINIATURE","NUT"),
+    "CARRIER": ("PLASTIC",),
+    "CARROT": ("APPLE","BABY","DICED","FRESH","JULIENNE"),
+    "CAULIFLOWER": ("FLORET","FRESH"),
+    "CELERY": ("FRESH","ROOT"),
+    "CEREAL": ("BAG","BRAN","COCOA","CORN","FROSTED","FRUIT","GRANOLA","INSTANT","MUESLI","RICE","SPECIAL"),
+    "CHAISE": ("LOUNGE",),
+    "CHARD": ("SWISS",),
+    "CHEESE": ("BABYBEL","BLACK","BLOCK","BLUE","BRIE","CHEDDAR","CHILI","CLASSIC","COTTAGE","CREAM","CROQUETTE","CUBE","FETA","FOOD","FRENCH","FRIES","FRY","GOAT","GORGONZOLA","GOUDA","GRANA","GREEK","HALLOUMI","ITALIAN","JACK","MEXICAN","MOZZ","ONION","PARMESAN","PIZZA","PORTION","RED","RICOTTA","SLI","SLICES","SMALL","SMOKED","SOFT","SPREAD","STICK","STYLE","SWISS","VEGAN","WEDGE","WHEEL"),
+    "CHEESECAKE": ("BAILEYS","CAPPUCCINO","CARAMEL","CHERRY","CHOC","CHOCOLATE","LEMON","MIX","NEW","PLAIN","STRAWBERRY"),
+    "CHERRY": ("ALMOND","CHOC","MARACHINO","WHOLE"),
+    "CHESTNUT": ("PEELED",),
+    "CHICKEN": ("AND","BONE","BREADED","BREAST","BURGER","CHUNK","CURRY","DICED","DRUMSTICK","FILET","FRIED","HALF","HOT","LEG","MAYONNAISE","MEAT","MIX","NUGGET","QUARTER","SKIN","STRIP","THIGH","WHOLE","WING","WINGS"),
+    "CHICKPEA": ("BULK","CANNED","DRIED"),
+    "CHICORY": ("FRESH",),
+    "CHILI": ("CON","FRESH","GREEN","MIX","PAD","POWDER","RED"),
+    "CHIP": ("BAG","BBQ","CHEESE","CHILI","CHUNK","CORN","CRISP","POTATO","ROLL","TORTILLA"),
+    "CHIVE": ("FRESH",),
+    "CHOC": ("CHIP","FONDANT","LOLLY","SAUCE"),
+    "CHOCLATE": ("DARK","MILK","WHITE"),
+    "CHOCOLATE": ("BAR","BASE","CARAMEL","CHIP","CREAM","CROISSANT","DARK","DROP","FUDGE","MILK","MINT","NUT","ORANGE","ROUALDE","SQUARE","STICK","WHITE"),
+    "CHORIZO": ("SLICED",),
+    "CHURRO": ("CHOCOLATE","FILLED"),
+    "CHUTNEY": ("APPLE","FIG","MANGO","ONION","PEAR","TOMATO"),
+    "CIDER": ("APPLE",),
+    "CINNAMON": ("GROUND","STICK"),
+    "CITRUS": ("PUNCH",),
+    "CLEANER": ("BATHROOM","DRAIN","GEL","GRILL","LEMON","LIQUID","MULTI","OVEN","PAD","SPRAY","SUPER","TOILET","VIRABACT"),
+    "CLOCK": ("TIME","WALL"),
+    "CLOTH": ("ALL","BLUE","CLEANING","GLOVE","GREEN","NET","PAPER","YELLOW"),
+    "CLOTHESPIN": ("WOOD",),
+    "COCKTAIL": ("APTZR","SAUCE"),
+    "COCOA": ("POWDER",),
+    "COCONUT": ("CHOC","DRIED","MANGO","WHL"),
+    "COD": ("BATTERED","BEER","BITE","BREADED","CUT","FIL","FILET","FILLET","FISH","LOIN","STEAK","TAIL"),
+    "COFFEE": ("AZERA","BASE","BEANS","BLEND","COOKIE","GROUND","ICED","LITE","MACHINE","NUT","STICK","TEA","TIN","WALNUT"),
+    "COLD": ("WATER",),
+    "COLORING": ("FOOD",),
+    "CONE": ("ICE","SUGAR","WAFER","WAFFLE"),
+    "CONTAINER": ("BAGASSE","FOOD","SALAD","SANDWICH"),
+    "COOKIE": ("BISCUIT","CARAMEL","CHIP","CHOC","CINNAMON","CREAM","CRUMB","FUDGE","JAM","MACAROON","MIX","OATMEAL","SANDWICH","SHORTBREAD","SPREAD","STICK"),
+    "COOLER": ("WATER",),
+    "CORN": ("BABY","COB","FLAKE","SWEET","WHL"),
+    "COTTON": ("BALL",),
+    "COUSCOUS": ("GRAIN","PEARL"),
+    "COVER": ("TABLE",),
+    "CRAB": ("CAKE","MEAT"),
+    "CRACKER": ("RICE",),
+    "CRANBERRY": ("FRESH",),
+    "CRAWFISH": ("TAIL",),
+    "CRAYFISH": ("TAIL",),
+    "CREAM": ("AEROSOL","ALTERNATIVE","BISCUIT","CHEESE","CLEANER","CLOTTED","COCONUT","COFFEE","DOUBLE","FRAICHE","FRESH","LIQUID","PUFF","SET","WHIPPED","WHIPPING"),
+    "CREME": ("BRULEE","CARAMEL","FRAICHE"),
+    "CRISPS": ("HULO",),
+    "CROISSANT": ("ALMOND","BUTTER","DOUGH","MINIATURE"),
+    "CRUMBLE": ("APPLE",),
+    "CRUMPET": ("PLAIN",),
+    "CUCUMBER": ("FRESH",),
+    "CUP": ("CLEAR","HALF","HOT","PAPER","PET","PLASTIC","WATER","WHITE"),
+    "CURRANT": ("RED",),
+    "CURRY": ("PASTE","POWDER"),
+    "CUSTARD": ("CREAM","MIX"),
+    "CUTLERY": ("KIT",),
+    "DANISH": ("CINNAMON","PASTRY","PECAN"),
+    "DATE": ("SLICE",),
+    "DEGREASER": ("HEAVY",),
+    "DESSERT": ("CARAMEL","CUP","FROZEN","MIX","MOUSSE","ORANGE","STRAWBERRY","TIRAMISU"),
+    "DETERGENT": ("GLASS","LIQUID","MACHINE"),
+    "DILL": ("HERB",),
+    "DISH": ("PLASTIC",),
+    "DISHWASHER": ("LOW",),
+    "DISINFECTANT": ("PINE",),
+    "DISPENSER": ("BOTTLE","FILM","PAPER","PUMP","TOWEL"),
+    "DOG": ("TREAT",),
+    "DOILY": ("PAPER",),
+    "DOME": ("LID",),
+    "DONUT": ("CHOC","CHOUXNUT","CINNAMON","DOUGH","JELLY","MINIATURE","WHITE"),
+    "DOUGH": ("BALL","COOKIE","MIX"),
+    "DOUGHNUT": ("MIX",),
+    "DRESSING": ("CAESAR","FRENCH","JAPANESE","YOGURT"),
+    "DRIED": ("PEEL",),
+    "DRINK": ("APPLE","BLACKBERRY","BOT","CANNED","CHERRY","CHOCOLATE","COFFEE","ENERGY","FRUIT","GINGER","GREEN","ITALIAN","LEMON","LEMONADE","MANGO","MIX","ORANGE","PINEAPPLE","RASPBERRY","RED","SMOOTHIE","SPARKLING","STRAWBERRY","SWEET","TROPICAL","WHITE"),
+    "DUCK": ("BREAST","FAT","GROUND","HALF","LEG","LIVER","MEAT","WHL","WHOLE"),
+    "DUST": ("PAN",),
+    "DUSTER": ("YELLOW",),
+    "EGG": ("LIQUID","MAYONNAISE","ROLL","WHITE","YOLK"),
+    "EMERY": ("BOARD",),
+    "EXTRACT": ("VANILLA",),
+    "FALAFEL": ("MOROCCAN",),
+    "FAT": ("DUCK",),
+    "FENNEL": ("FRESH","SEED"),
+    "FIG": ("FRESH",),
+    "FILLING": ("CHERRY","MIX","PIE","SANDWICH"),
+    "FILM": ("CLING","FOR","PVC","ROLL","SHRINK"),
+    "FILTER": ("COFFEE",),
+    "FISH": ("BITE","BITES","BTRD","CAKE","FILET","FOOD","PIE","SMOKED","STICK","WHITE"),
+    "FLAN": ("CASE",),
+    "FLAP": ("JACK",),
+    "FLAVOURING": ("ALMOND",),
+    "FLOUR": ("CORN","MIX","RICE","SELF","SEMOLINA","TORTILLA","WHEAT","WHITE","WRAP"),
+    "FLOWER": ("EDIBLE",),
+    "FLOWERS": ("FRESH",),
+    "FLU": ("MEDIUM",),
+    "FOIL": ("FOOD","ROLL"),
+    "FOOD": ("BABY","FOR","PET"),
+    "FORK": ("WOOD","WOODEN"),
+    "FRENCH": ("FRIES",),
+    "FRESH": ("CRESS",),
+    "FRESHENER": ("AIR",),
+    "FRIES": ("HALLOUMI",),
+    "FRITTER": ("CORN",),
+    "FRUIT": ("BLUEBERRY","COCKTAIL","CRUMB","DRIED","FRESH","FROZEN","MIX","PASTILLES","PINEAPPLE","SCONE","SMOOTHIE","STICK"),
+    "FUDGE": ("CHOCOLATE",),
+    "GAME": ("MEAT",),
+    "GARLIC": ("BULB","CHOPPED","CLOVE","FRESH","PEELED","POWDER","PUREE","SALT"),
+    "GAS": ("CARBON",),
+    "GELATIN": ("GEL",),
+    "GINGER": ("BEER","FRESH","ROOT"),
+    "GLACE": ("LOBSTER",),
+    "GLASS": ("JUICE","PLASTIC","WATER"),
+    "GLASSES": ("READING","SAFETY"),
+    "GLAZE": ("BALSAMIC","BARBECUE","BASE","MIX"),
+    "GLOVE": ("NITRILE","OVEN","RUBBER","VINYL"),
+    "GRAPE": ("RED","WHITE"),
+    "GRAPEFRUIT": ("FRESH","RUBY","SECTION"),
+    "GRASS": ("GREEN",),
+    "GRAVY": ("BASE","BEEF","CHICKEN"),
+    "GREEN": ("FRESH","PEPPERCORNS"),
+    "GROUND": ("PAPRIKA",),
+    "GUACAMOLE": ("FRESH","SAUCE"),
+    "GUINEA": ("WHL",),
+    "GUM": ("BUBBLE","XANTHAN"),
+    "HADDOCK": ("BATTERED","FILET","LOIN","SMOKED","STICK"),
+    "HAGGIS": ("TRADITIONAL",),
+    "HAIRNET": ("BLUE",),
+    "HAKE": ("FILET",),
+    "HALIBUT": ("FILET",),
+    "HAM": ("BBQ","COOKED","GREEN","HALF","HOCK","HONEY","LEG","PARMA","PIZZA","SLICED","SMOKED","STEAK","WHOLE"),
+    "HARNESS": ("HEAD",),
+    "HASHBROWN": ("ROUND",),
+    "HERB": ("BASIL","CHIVE","CRISP","FRESH","LEMON","MINT","MIX","PARSLEY","SAGE","SEED","TARRAGON"),
+    "HOLDER": ("CUP",),
+    "HONEY": ("CLEAR","COMB","FRESH","LIQUID"),
+    "HONEYCOMB": ("WHL","WHOLE"),
+    "HORSERADISH": ("FRESH",),
+    "HOT": ("DOG",),
+    "HUMMUS": ("ORIGINAL",),
+    "ICE": ("CREAM","CUBE","DAIRY","FRUIT","LOLLY","MILK","ORANGE"),
+    "ICING": ("BANANA","BUN","CARAMEL","CHOC","GLAZE","LEMON","STRAWBERRY","SUGAR","TOFFEE"),
+    "IN": ("SYRUP",),
+    "JAM": ("APRICOT","ASSORTED","BLACKCURRANT","CHERRY","FRUIT","RASPBERRY","SPONGE","STRAWBERRY"),
+    "JELLY": ("ORANGE","QUINCE","RED","STRAWBERRY"),
+    "JUICE": ("APPLE","BERRY","CRANBERRY","DRINK","LEMON","LIME","MANGO","ORANGE","PEAR","PINEAPPLE","TOMATO"),
+    "KALE": ("FRESH",),
+    "KETCHUP": ("PACKET","SQUEEZY","TABLE","TOMATO"),
+    "KIWI": ("FRESH",),
+    "KNIFE": ("BONE","STEAK"),
+    "KOHLRABI": ("FRESH",),
+    "LABEL": ("DAILY","DATE","DAY","MAILER","PAPER","ROLL","SAT","WED","WHITE"),
+    "LAMB": ("BONE","BREAST","CUT","DICED","GROUND","KIDNEY","LEG","LIVER","LOIN","RACK","ROLL","SHANK","SHOULDER","STEAK","WHL","WHOLE"),
+    "LARD": ("BLOCK",),
+    "LASAGNA": ("BEEF","VEG"),
+    "LAUNDRY": ("POWDER",),
+    "LEAF": ("FRESH",),
+    "LEAVES": ("FRESH",),
+    "LEEK": ("BABY","FRESH"),
+    "LEG": ("STEAK",),
+    "LEMON": ("BLUEBERRY","CURD","FRESH","GLAZE","ROU"),
+    "LEMONADE": ("BOTTLE","CONCENTRATE","FRESH","PINK"),
+    "LENTIL": ("GREEN","PILAF"),
+    "LETTUCE": ("FRESH","ICEBERG","LOLLO","RADICCHIO","RED"),
+    "LID": ("BLACK","BOWL","CONTAINER","STOPCOCK","WHITE"),
+    "LIME": ("LEMON","WEDGE"),
+    "LIMEADE": ("CORDIAL",),
+    "LINER": ("BIN",),
+    "LIQUID": ("DISHWASHER",),
+    "LIVER": ("CHICKEN","DUCK"),
+    "LLAMA": ("ROAST",),
+    "LNCPS": ("CHIP",),
+    "LOBSTER": ("LIVE","SCAMPI"),
+    "MACARONI": ("CHEESE",),
+    "MACKEREL": ("FILET",),
+    "MANDARIN": ("SEGMENT",),
+    "MANGO": ("DICED","FRESH","PUREE"),
+    "MARGARINE": ("BTR","TUB"),
+    "MARINADE": ("GLAZE",),
+    "MARMALADE": ("ONION","ORANGE","TUB"),
+    "MARSHMALLOW": ("WHITE",),
+    "MARZIPAN": ("PREMIUM",),
+    "MATZO": ("BALL","EGG","MEAL"),
+    "MAYONNAISE": ("CHIPOTLE","CLASSIC","CORONATION","CUP","GARLIC","LITE","MEXICAN","PACKET","SQUEEZE","VEGAN"),
+    "MEAT": ("BALL","MIX"),
+    "MEATBALL": ("VEGAN",),
+    "MELON": ("GALIA","HONEYDEW","ORANGE"),
+    "MERINGUE": ("NEST",),
+    "MILK": ("ALMOND","BANANA","CARAMEL","CHOC","CHOCOLATE","COCONUT","COFFEE","CONDENSED","EVAPORATED","LIQUID","MINT","OAT","ORGANIC","SEMI","SKIM","SKIMMED","SOY","STRAWBERRY","VANILLA","WHL","WHOLE"),
+    "MILKSHAKE": ("BASE",),
+    "MINT": ("FRESH","LOLLY","SWEET"),
+    "MIX": ("BATTER","GRAVY","MILK","MUFFIN","SMOOTHIE","SOUP","STUFFING"),
+    "MONKFISH": ("PRTN","TAIL"),
+    "MOP": ("BUCKET","HANDLE","HEAD"),
+    "MOUSSE": ("CHOC",),
+    "MUFFIN": ("BLUEBERRY","CASE","CHOC"),
+    "MULLET": ("FILET",),
+    "MUSHROOM": ("BUTTON","CUP","FRESH","OYSTER","PORTOBELLO","SHITAKE","SOUP","STEAK","WILD"),
+    "MUSSEL": ("LIVE","MEAT"),
+    "MUSTARD": ("BEEF","CHIP","DIJON","ENGLISH","FRENCH","GRAIN","GRAINY","HONEY","PACKET","POWDER","SEED","WHL","YELLOW"),
+    "NAPKIN": ("1PLY","2PLY","3PLY","CREAM","LINEN","PAPER","SANITARY","WHITE"),
+    "NECTARINE": ("FRESH",),
+    "NOODLE": ("EGG","RICE","UDON"),
+    "NUT": ("CASHEW","HAZELNUT","MIX","PEANUT","PECAN","PINE","PISTACHIO","PROTEIN","ROAST","WALNUT"),
+    "OAT": ("FLAKES","REGULAR"),
+    "OIL": ("ALMOND","BUTTER","COOKING","DRUM","GRAPE","OLIVE","SESAME","SUNFLOWER","TRUFFLE","VEGETABLE"),
+    "OLIVE": ("BLACK","GREEK","GREEN","LEMON","MIX","PITTED","SPANISH","WHOLE"),
+    "ONION": ("BALL","BALSAMIC","CHIP","CRISP","FRESH","LARGE","MEDIUM","MIX","PICKLE","PICKLED","POWDER","RED","RING","SEED","SLICED"),
+    "ORANGE": ("FRESH","JUICE","LEMON","MANDARIN","SECTION"),
+    "ORDER": ("FORM",),
+    "PACKET": ("TOILET",),
+    "PAD": ("CLEANING",),
+    "PAN": ("GRILL",),
+    "PANCAKE": ("BASE",),
+    "PANCETTA": ("WHOLE",),
+    "PANINI": ("PLAIN",),
+    "PAPER": ("BAKING","PARCHMENT","PRODUCT","ROLL","SHEET","SINGLE"),
+    "PARSNIP": ("FRESH",),
+    "PARTRIDGE": ("WHOLE",),
+    "PASSION": ("FRUIT",),
+    "PASTA": ("BAULETTI","EGG","FUSILLI","GARGANELLI","GNOCCHI","LASAGNA","LINGUINE","LONG","MACARONI","MIX","ORZO","PENNE","RAVIOLI","SHELL","SPAGHETTI","SPINACH","TAGLIATELLE"),
+    "PASTE": ("CHILE","VANILLA","WASABI"),
+    "PASTRAMI": ("SLICED",),
+    "PASTRY": ("BLOCK","CHOC","DOUGH","ECLAIR","MIX","RAISIN","SHELL"),
+    "PASTY": ("BEEF","CHICKEN","CORNISH"),
+    "PATE": ("ARDENNES","FRESH"),
+    "PEA": ("GREEN","POD","PUREE","SNAP"),
+    "PEACH": ("FRESH","HALF","PUREE","SLI","SLICED"),
+    "PEANUT": ("BUTTER","CHILI","ROASTED","SALT","SALTED","WHOLE"),
+    "PEAR": ("FRESH","HALF","PUREE"),
+    "PEPPER": ("BLACK","CHILI","GREEN","HOT","MIXED","PACKET","RED","WHITE","YELLOW"),
+    "PEPPERCORN": ("WHOLE",),
+    "PEPPERS": ("JALAPENO",),
+    "PERMIT": ("WHL",),
+    "PHEASANT": ("BREAST",),
+    "PICKLE": ("CHIP","DILL","GHERKIN","LARGE","SLI"),
+    "PIE": ("APPLE","BAKING","BANOFFEE","BEEF","CHICKEN","FRESH","KEY","LEMON","MINI","MIX"),
+    "PIG": ("WHOLE",),
+    "PIGEON": ("WHOLE",),
+    "PINEAPPLE": ("FRESH","RING"),
+    "PIZZA": ("ALL","BASE","BOX","CHICKEN","DOUGH","MINI","PEPPERONI","TOMATO"),
+    "PLAICE": ("BREADED","WHL"),
+    "PLANTBASED": ("CHICKEN",),
+    "PLASTER": ("PLASTIC",),
+    "PLATE": ("GRILL","LUNCH","PAPER"),
+    "PLUM": ("FRESH","HALF"),
+    "POLISH": ("FURNITURE",),
+    "POLLOCK": ("BATTERED","FILET"),
+    "POMEGRANATE": ("FRESH",),
+    "POPCORN": ("KERNEL",),
+    "PORK": ("BACK","BBQ","BELLY","BONE","CHEEK","COLLAR","CUBE","EAR","FAT","FEET","FILET","GROUND","HAM","HEAD","HOCK","KIDNEY","LEEK","LEG","LIVER","LOIN","MEAT","PIE","PUREE","RIB","SHOULDER","SKIN","STEAK","STIR","WHOLE"),
+    "POT": ("PIE",),
+    "POTATO": ("BAKER","BAKING","CHIP","CROQUETTE","CUBE","DICE","DICED","FONDANT","FRESH","FRIES","HASHBROWN","MASH","PUFF","ROAST","ROUND","SKIN","SLI","SWEET","WEDGE","WHITE"),
+    "POWDER": ("ARROWROOT","BAKING","COCONUT"),
+    "PRAWN": ("SHRIMP","TEMPURA","WHOLE"),
+    "PRESSE": ("ELDERFLOWER",),
+    "PRETZEL": ("ROLL","SOFT"),
+    "PRODUCE": ("MISC",),
+    "PRODUCT": ("STORAGE",),
+    "PRUNE": ("DRIED",),
+    "PUDDING": ("BLACK","MIX"),
+    "PUFF": ("PASTRY",),
+    "PUMPKIN": ("FRESH","SEED"),
+    "PUREE": ("BERRY","FRUIT","PEACH","PINEAPPLE"),
+    "QUAIL": ("WHL",),
+    "QUICHE": ("BASE","CHEESE","LORRAINE","MINI","SHELL","VEGETABLE"),
+    "QUINOA": ("GRAIN",),
+    "RABBIT": ("BACON","WHL"),
+    "RADISH": ("FRESH",),
+    "RAISIN": ("GOLDEN",),
+    "RASPBERRY": ("FRESH","PUREE"),
+    "RED": ("AMARANTH","GREEN","LENTIL","VEIN"),
+    "RELISH": ("BURGER","ONION"),
+    "RHUBARB": ("FRESH",),
+    "RICE": ("ARBORIO","BASMATI","BROWN","CAKE","JASMINE","LONG","PUREE"),
+    "RINSE": ("AID",),
+    "ROLL": ("BREAD","BROWN","MINI","RASPBERRY","ROUND","RUSTIC","WHITE"),
+    "ROSEMARY": ("FRESH","HERB"),
+    "RUBBER": ("BAND",),
+    "RUM": ("RAISIN",),
+    "SAGE": ("FRESH",),
+    "SALAD": ("BEAN","BOWL","CREAM","DRESSING","FROZEN","FRUIT","GARDEN","MIX","SEAWEED"),
+    "SALAMI": ("CHORIZO","SLI"),
+    "SALMON": ("FILET","PACIFIC","SKIN","SMOKED","WHL"),
+    "SALSA": ("MEXICAN",),
+    "SALT": ("CARAMEL","FINE","PACKET","ROCK","SEA","SMOKED","TABLE","TUB"),
+    "SAMPLE": ("SET",),
+    "SANDWICH": ("BACON","CHICKEN","FILLING","WEDGE"),
+    "SANITIZER": ("HAND",),
+    "SAUCE": ("APPLE","BASE","BBQ","BEAN","BOLOGNESE","BRANDY","BROWN","BUTTER","CARAMEL","CHEESE","CHILI","CHIMICHURRI","CHOCOLATE","CRANBERRY","CREAM","CURRY","FISH","GREEN","HABANERO","HORSERADISH","KETCHUP","LOBSTER","MAYONNAISE","MINT","MISO","MIX","MUSHROOM","OYSTER","PACKET","PEPPER","PEPPERCORN","PIZZA","PLUM","RED","SALAD","SALSA","SOY","SWEET","TARTAR","TERIYAKI","TOMATO","WHITE","WORCESTER"),
+    "SAUERKRAUT": ("KUHNE",),
+    "SAUSAGE": ("APPLE","CHORIZO","COCKTAIL","GARLIC","LINK","MEAT","PATTY","PORK","ROLL","STICK","VEGAN","VEGETARIAN"),
+    "SCALLOP": ("IQF","SEA"),
+    "SCAMPI": ("WHL",),
+    "SCONE": ("APPLE","CHEESE","DOUGH","MIX","PLAIN"),
+    "SEA": ("BURGER","URCHIN"),
+    "SEABASS": ("FILET",),
+    "SEAFOOD": ("BASKET","MIX"),
+    "SEASONING": ("CAJUN","CHIP","HERB"),
+    "SEAWEED": ("NORI",),
+    "SEED": ("CHIA","LIN","POPPY","SESAME","SUNFLOWER","WHOLE"),
+    "SET": ("COLLECTION",),
+    "SHAKE": ("BANANA","BASE","CHOC","MIX","STRAWBERRY","VANILLA"),
+    "SHARPENING": ("STEEL",),
+    "SHEET": ("PAN",),
+    "SHELL": ("TARTLET",),
+    "SHELLOT": ("BANANA",),
+    "SHORTBREAD": ("TRAYBAKE",),
+    "SHORTCAKE": ("LEMON",),
+    "SHRIMP": ("BREADED","ROLL"),
+    "SKEWER": ("BAMBOO","WOOD"),
+    "SLAW": ("DRY",),
+    "SLCS": ("BEAN",),
+    "SLUSH": ("BASE","STRAWBERRY"),
+    "SMOOTHIE": ("POUCH",),
+    "SNACK": ("BAR","CHIP","MIX"),
+    "SOAP": ("HAND","LIQUID","PAD","POWDER"),
+    "SODA": ("7-UP","CHERRY","COLA","CRISP","LEMON","LEMONADE","ORANGE","PEPSI","POP","REGULAR","SHANDY","SPRITE","STRAWBERRIES"),
+    "SODIUM": ("ALGINATE","CHL"),
+    "SOLE": ("WHOLE",),
+    "SORBET": ("ACAI","CHAMPAGNE","COCONUT","FRUIT","GELATO","GRAPEFRUIT","LEMON","LIME","MANGO","ORANGE","PEACH","RASPBERRY","STRAWBERRY"),
+    "SOUP": ("BROCCOLI","CHICKEN","LENTIL","MUSHROOM","TOMATO","VEGETABLE"),
+    "SOUR": ("CREAM",),
+    "SOYBEAN": ("FRESH",),
+    "SPAGHETTI": ("RING",),
+    "SPICE": ("BASIL","CAJUN","CLOVE","CUMIN","FIVE","GREEN","GROUND","HERB","ITALIAN","JUNIPER","MIX","NUTMEG","POWDER","RUB","SAFFRON","SEED","TARRAGON"),
+    "SPINACH": ("BABY","FRESH"),
+    "SPONGE": ("LARGE",),
+    "SPOON": ("TEA",),
+    "SPRAY": ("HEAD",),
+    "SPREAD": ("BUTTER","CHOCOLATE","GARLIC","PORTIONS","SOFT"),
+    "SPRING": ("ROLL",),
+    "SPROUT": ("BEAN","MIX","SALAD"),
+    "SQAUSH": ("APPLE",),
+    "SQUASH": ("BUTTERNUT",),
+    "SQUID": ("CAL","STRIP"),
+    "STEAK": ("BEEF","BONE","CUT","FILET","MINUTE","PIE","RIBEYE","RND","RUMP","SIRLOIN","SLICED","STEW","TOMAHAWK"),
+    "STEEL": ("WOOL",),
+    "STOCK": ("BASE","BEEF","CHICKEN","FISH","MIX","RED","VEGETABLE"),
+    "STOPCOCK": ("MALE","MET","ONE","PLASTIC"),
+    "STRAW": ("PAPER",),
+    "STRAWBERRY": ("BERRY","DAIRY","FRESH","IQF","LOLLY","PUREE","SPLIT","WHL"),
+    "STUFFING": ("MIX",),
+    "SUET": ("SHREDDED",),
+    "SUGAR": ("BROWN","CANE","CASTER","CUBE","DARK","DONUT","GRANULATED","LIGHT","PACKET","STICK","SUBSTITUTE"),
+    "SWEDE": ("FRESH",),
+    "SWEET": ("CHILI",),
+    "SWORDFISH": ("LOIN",),
+    "SYRUP": ("AMARETTO","BANANA","BASE","BLACKBERRY","BLUE","BUTTERSCOTCH","CARAMEL","CHOCOLATE","CINNAMON","COCONUT","GINGER","GINGERBREAD","GOLDEN","GRENADINE","HAZELNUT","HONEY","KIWI","LEMON","LIGHT","MANGO","MAPLE","MINT","MIX","ORANGE","PASSION","PINEAPPLE","PUMPKIN","SALTED","SPECIAL","STRAWBERRY","VANILLA"),
+    "TAHINI": ("PASTE",),
+    "TAPIOCA": ("PEARLS",),
+    "TART": ("ALMOND","APPLE","APRICOT","CARAMEL","CHERRY","CHOCOLATE","LEMON","PECAN","SHELL"),
+    "TARTLET": ("APPLE",),
+    "TEA": ("BAG","CHAI","CREAM","ENGLISH","GREEN","LEMON","LIQUID","MINT","PEACH","RASPBERRY","TOWEL"),
+    "TEST": ("STRIP",),
+    "THICKENER": ("FOOD",),
+    "THYME": ("FRESH","HERB"),
+    "TIN": ("FRUIT",),
+    "TOAST": ("SESAME",),
+    "TOFFEE": ("BUN","ICING"),
+    "TOFU": ("SILKEN",),
+    "TOILET": ("PAPER","ROLL"),
+    "TOMATO": ("BABY","CHERRY","CHOPPED","DRIED","FRESH","PASTE","PLUM","PUREE","ROUND","SUNDRIED","VINE"),
+    "TOPPING": ("SAUCE",),
+    "TORTE": ("CHOCOLATE",),
+    "TORTILLA": ("CORN",),
+    "TOWEL": ("HAND","PAPER"),
+    "TRAY": ("BAKE","CHIP","PAPER"),
+    "TRAYBACK": ("BAKEWELL",),
+    "TRAYBAKE": ("ALMOND","APPLE","APRICOT","BAKEWELL","FLAPJACK"),
+    "TROUT": ("FILET","SKIN","SMOKED","WHL"),
+    "TUNA": ("CHUNK","SALAD","STEAK"),
+    "TURKEY": ("BREAST","CUTLET","DICED","MEAT","ROLL","THIGH","WHL"),
+    "TURNIP": ("FRESH",),
+    "URINAL": ("SCREEN",),
+    "VAC": ("PACK",),
+    "VEAL": ("BONE","CHEEK","CUTLET","JUS","LIVER","SWEET","TOP"),
+    "VEGAN": ("MEAT",),
+    "VEGETABLE": ("ASSORTED","BASE","BEEF","JELLY","MIX","NUGGET","PASTE","ROLL","SAMOSA","SAUSAGE","STEW"),
+    "VENISON": ("DICED","GROUND","LEG","LOIN","SADDLE","STRIP","TRIMMING"),
+    "VINEGAR": ("BALSAMIC","CIDER","DISTILLED","MALT","PACKET","RED","RICE","SHERRY","SUSHI","WHITE","WINE"),
+    "WAFER": ("BISCUIT","CHOC","DISC","FAN","PAPER"),
+    "WAFFLE": ("BOWL","CHOC","CINNAMON","MIX","PLAIN"),
+    "WATER": ("CANNED","ICE","MELON","ORANGE","SODA","SPARKLING","SPRING","STILL"),
+    "WATERCRESS": ("FRESH",),
+    "WET": ("NAP",),
+    "WHITE": ("BAIT",),
+    "WHOLE": ("SHEEPHEAD",),
+    "WINE": ("COOKING","PORT","RED","WHITE"),
+    "WIPE": ("STERILE",),
+    "WONTON": ("CHICKEN","SHRIMP"),
+    "WOODEN": ("SPOON",),
+    "WRAP": ("FILM","FOIL","PALLET"),
+    "YEAST": ("DRY",),
+    "YOGURT": ("ASSORTED","CHERRY","COCONUT","CREAM","FROZEN","FRUIT","GREEK","HONEY","LIME","MIX","NATURAL","PLAIN","VANILLA"),
+}
+
+FIRST_SECOND_WORD_LOV: set[str] = {
+    f"{first} {second}"
+    for first, seconds in _FIRST_SECOND_WORD_MAP.items()
+    for second in seconds
+}
+
+
+def rule_lov_first_second_word(df: pd.DataFrame) -> list[dict]:
+    """Rule L10 — 'First & Second Word' must be a valid approved WORD1 WORD2 pair."""
+    rule_name = "Rule L10 — First & Second Word LOV"
+    col = "First & Second Word"
+    results = []
+    if col not in df.columns:
+        return results
+    for idx, row in df.iterrows():
+        raw = row.get(col)
+        if is_empty(raw):
+            continue
+        val = str(raw).strip().upper()
+        if val not in FIRST_SECOND_WORD_LOV:
+            results.append(make_result(
+                sheet=SHEET, row=excel_row(idx), supc=get_supc(row),
+                rule=rule_name,
+                message=f"Row {excel_row(idx)} — 'First & Second Word' value '{str(raw).strip()}' is not an approved word pair.",
+            ))
+    return results
+
+
 # =============================================================================
 # Registry — all global rules in execution order
 # =============================================================================
 
+YES_NO_COLS = [
+    "Dairy Free", "Gluten Free", "Halal", "Kosher", "Organic",
+    "Vegan", "Vegetarian", "Biodegradable or Compostable",
+    "Recyclable", "Hazardous Material", "Product Warranty",
+    "Perishable Product/Date Tracked",
+]
+YES_NO_LOV = {"Yes", "No"}
+
+
+def rule_lov_yes_no(df: pd.DataFrame) -> list[dict]:
+    """Rule L8 — Boolean columns must contain 'Yes' or 'No'."""
+    rule_name = "Rule L8 — Yes/No LOV"
+    results = []
+    present = [c for c in YES_NO_COLS if c in df.columns]
+    for idx, row in df.iterrows():
+        for col in present:
+            raw = row.get(col)
+            if is_empty(raw):
+                continue
+            if str(raw).strip() not in YES_NO_LOV:
+                results.append(make_result(
+                    sheet=SHEET, row=excel_row(idx), supc=get_supc(row),
+                    rule=rule_name,
+                    message=f"Row {excel_row(idx)} — '{col}' value '{str(raw).strip()}' is invalid. Allowed: Yes, No.",
+                ))
+    return results
+
+
+def rule_product_warranty_code(df: pd.DataFrame) -> list[dict]:
+    """Rule 11 — Product Warranty Code is conditional on Product Warranty.
+
+    If 'Product Warranty' = Yes  → 'Product Warranty Code' must be filled.
+    If 'Product Warranty' = No   → 'Product Warranty Code' must be empty.
+    """
+    rule_name = "Rule 11 — Product Warranty Code conditional"
+    col_w  = "Product Warranty"
+    col_wc = "Product Warranty Code"
+    results = []
+    if col_w not in df.columns or col_wc not in df.columns:
+        return results
+    for idx, row in df.iterrows():
+        warranty  = str(row.get(col_w, "")).strip()
+        wc_filled = not is_empty(row.get(col_wc))
+        if warranty == "Yes" and not wc_filled:
+            results.append(make_result(
+                sheet=SHEET, row=excel_row(idx), supc=get_supc(row),
+                rule=rule_name,
+                message=f"Row {excel_row(idx)} — 'Product Warranty' is Yes but 'Product Warranty Code' is empty.",
+            ))
+        elif warranty == "No" and wc_filled:
+            results.append(make_result(
+                sheet=SHEET, row=excel_row(idx), supc=get_supc(row),
+                rule=rule_name,
+                message=f"Row {excel_row(idx)} — 'Product Warranty' is No but 'Product Warranty Code' is filled.",
+            ))
+    return results
+
+
+def rule_perishable_food_only(df: pd.DataFrame) -> list[dict]:
+    """Rule 12 — 'Perishable Product/Date Tracked' = Yes is only valid for food Attribute Group IDs.
+
+    The set FOOD_ATTRIBUTE_GROUP_IDS must be populated with the confirmed IDs.
+    Until populated the rule is skipped gracefully.
+    """
+    rule_name = "Rule 12 — Perishable only for food attribute groups"
+    col_perishable = "Perishable Product/Date Tracked"
+    results = []
+    if col_perishable not in df.columns or COL_ATTRIBUTE_GROUP_ID not in df.columns:
+        return results
+    for idx, row in df.iterrows():
+        if str(row.get(col_perishable, "")).strip() != "Yes":
+            continue
+        raw_id = row.get(COL_ATTRIBUTE_GROUP_ID)
+        if is_empty(raw_id):
+            continue
+        attr_id = str(int(float(str(raw_id)))).zfill(8) if str(raw_id).replace(".", "").isdigit() else str(raw_id).strip()
+        if attr_id not in FOOD_ATTRIBUTE_GROUP_IDS:
+            results.append(make_result(
+                sheet=SHEET, row=excel_row(idx), supc=get_supc(row),
+                rule=rule_name,
+                message=f"Row {excel_row(idx)} — 'Perishable Product/Date Tracked' is Yes but Attribute Group ID '{attr_id}' is not a food attribute group.",
+            ))
+    return results
+
+
+ALLERGEN_COLS = [
+    "Almonds", "Barley", "Brazil Nuts", "Cashew Nuts",
+    "Celery and products thereof", "Crustaceans and products thereof",
+    "Eggs and products thereof", "Fish and products thereof",
+    "Gluten at > 20 ppm", "Hazelnuts", "Kamut",
+    "Lupin and products thereof", "Macadamia Nuts/Queensland Nuts",
+    "Milk and products thereof", "Molluscs and products thereof",
+    "Mustard and products thereof", "Nuts", "Oats",
+    "Peanuts and products thereof", "Pecan Nuts", "Pistachio Nuts",
+    "Rye", "Sesame seeds and products thereof", "Soybeans and products thereof",
+    "Spelt", "Sulphur Dioxide > 10 ppm", "Walnuts", "Wheat",
+]
+
+ALLERGEN_STATUS_LOV = {"Contains", "May Contain", "Does Not Contain"}
+
+
+def rule_lov_allergen_status(df: pd.DataFrame) -> list[dict]:
+    """Rule L7 — Allergen columns must contain 'Contains', 'May Contain', or 'Does Not Contain'."""
+    rule_name = "Rule L7 — Allergen Status LOV"
+    results = []
+    present = [c for c in ALLERGEN_COLS if c in df.columns]
+    for idx, row in df.iterrows():
+        for col in present:
+            raw = row.get(col)
+            if is_empty(raw):
+                continue
+            if str(raw).strip() not in ALLERGEN_STATUS_LOV:
+                results.append(make_result(
+                    sheet=SHEET, row=excel_row(idx), supc=get_supc(row),
+                    rule=rule_name,
+                    message=f"Row {excel_row(idx)} — '{col}' value '{str(raw).strip()}' is invalid. Allowed: Contains, May Contain, Does Not Contain.",
+                ))
+    return results
+
+
+def rule_supc_unique(df: pd.DataFrame) -> list[dict]:
+    """Rule U1 — SUPC must be unique within the file."""
+    rule_name = "Rule U1 — SUPC uniqueness"
+    col = "SUPC"
+    results = []
+    if col not in df.columns:
+        return results
+    dupes = df[df.duplicated(subset=[col], keep=False)]
+    for idx, row in dupes.iterrows():
+        val = row.get(col)
+        if is_empty(val):
+            continue
+        results.append(make_result(
+            sheet=SHEET, row=excel_row(idx), supc=get_supc(row),
+            rule=rule_name,
+            message=f"Row {excel_row(idx)} — SUPC '{str(val).strip()}' is duplicated.",
+        ))
+    return results
+
+
 ALL_GLOBAL_RULES = [
     # A. Business Rules
+    rule_supc_unique,                     # Rule U1
     rule_split_attributes_required,       # Rule 1
     rule_split_dimensions_within_case,    # Rule 2
     rule_shelf_life_order,                # Rule 4
@@ -1111,4 +1800,10 @@ ALL_GLOBAL_RULES = [
     rule_lov_item_group,                  # Rule L4
     rule_lov_vat_group,                   # Rule L5
     rule_lov_temperature,                 # Rule L6
+    rule_lov_allergen_status,             # Rule L7
+    rule_lov_generic_gtin,               # Rule L9
+    rule_lov_first_second_word,           # Rule L10
+    rule_lov_yes_no,                      # Rule L8
+    rule_product_warranty_code,           # Rule 11
+    rule_perishable_food_only,            # Rule 12
 ]

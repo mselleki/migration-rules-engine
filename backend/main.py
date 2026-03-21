@@ -12,6 +12,7 @@ from fastapi.responses import StreamingResponse
 
 from validator import validate, validate_customer, validate_vendor
 from utils.lov_extractor import get_hardcoded_lovs, extract_attribute_groups, extract_brands, extract_buyer_groups, extract_commodity_codes
+from diff import run_diff, DIFF_CONFIG
 
 # ---------------------------------------------------------------------------
 # App setup
@@ -200,3 +201,33 @@ def get_lov_attributes():
     df = _get_lovs_df()
     attributes = sorted(df["attribute"].dropna().astype(str).str.strip().unique().tolist())
     return attributes
+
+
+# ---------------------------------------------------------------------------
+# Diff endpoints
+# ---------------------------------------------------------------------------
+
+@app.get("/diff/config")
+def get_diff_config(type: str):
+    """Return available sheet names for the given diff type."""
+    cfg = DIFF_CONFIG.get(type)
+    if cfg is None:
+        raise HTTPException(status_code=400, detail=f"Unknown diff type '{type}'. Valid: {list(DIFF_CONFIG)}")
+    return {"sheets": list(cfg["sheets"].keys())}
+
+
+@app.post("/diff")
+async def diff_files(
+    original: UploadFile = File(...),
+    modified: UploadFile = File(...),
+    type: str = Form(...),
+    sheet: str = Form(...),
+):
+    """Diff two Excel files for a given type and sheet."""
+    original_bytes = await original.read()
+    modified_bytes = await modified.read()
+    try:
+        result = run_diff(original_bytes, modified_bytes, type, sheet)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return result

@@ -47,6 +47,7 @@ export default function LovExplorer() {
       .finally(() => setLoading(false));
   }, [selectedAttr, debouncedSearch]);
 
+  const searchRef = useRef(null);
   const parentRef = useRef(null);
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
@@ -78,10 +79,12 @@ export default function LovExplorer() {
             <div className="relative flex-1 min-w-[200px] max-w-sm">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" aria-hidden />
               <input
+                ref={searchRef}
                 type="text"
                 placeholder="Search key or description…"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
+                onKeyDown={e => { if (e.key === "Escape") { setSearch(""); e.currentTarget.blur(); } }}
                 aria-label="Search LOV values"
                 className="w-full pl-8 pr-7 py-1.5 text-sm border border-slate-200 dark:border-slate-700 rounded-md bg-white dark:bg-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:outline-none"
               />
