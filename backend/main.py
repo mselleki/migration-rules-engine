@@ -4,14 +4,28 @@ from __future__ import annotations
 
 import csv
 import io
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
-from validator import validate, validate_customer, validate_vendor, validate_combined_products, validate_combined_vendor, validate_combined_customer
-from utils.lov_extractor import get_hardcoded_lovs, extract_attribute_groups, extract_brands, extract_buyer_groups, extract_commodity_codes
+from validator import (
+    validate,
+    validate_customer,
+    validate_vendor,
+    validate_combined_products,
+    validate_combined_vendor,
+    validate_combined_customer,
+)
+from utils.lov_extractor import (
+    get_hardcoded_lovs,
+    extract_attribute_groups,
+    extract_brands,
+    extract_buyer_groups,
+    extract_commodity_codes,
+)
 from diff import run_diff, DIFF_CONFIG
 
 # ---------------------------------------------------------------------------
@@ -20,9 +34,14 @@ from diff import run_diff, DIFF_CONFIG
 
 app = FastAPI(title="Sysco Migration Rules Engine", version="1.0.0")
 
+_cors_origins = os.getenv(
+    "CORS_ORIGINS",
+    "http://localhost:5173,https://migration-rules-engine.vercel.app,https://migration-rules-engine-msellekis-projects.vercel.app",
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Vite dev server
+    allow_origins=_cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -35,6 +54,7 @@ OUTPUT_DIR = Path(__file__).resolve().parent.parent / "output"
 # ---------------------------------------------------------------------------
 
 _LOV_DF = None
+
 
 def _get_lovs_df():
     global _LOV_DF
@@ -63,6 +83,7 @@ def _get_lovs_df():
 # Routes
 # ---------------------------------------------------------------------------
 
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -77,19 +98,19 @@ async def validate_files(
     domain: str = Form("Products"),
     legal_entity: str = Form(""),
     # Combined-file mode (single XLSX with multiple sheets)
-    combined_file:     UploadFile | None = File(None),
+    combined_file: UploadFile | None = File(None),
     # Products (individual mode)
-    global_file:       UploadFile | None = File(None),
-    local_file:        UploadFile | None = File(None),
+    global_file: UploadFile | None = File(None),
+    local_file: UploadFile | None = File(None),
     # Vendors & Customers (shared field names, individual mode)
-    invoice:           UploadFile | None = File(None),
-    lea_invoice:       UploadFile | None = File(None),
-    os:                UploadFile | None = File(None),
-    lea_os:            UploadFile | None = File(None),
+    invoice: UploadFile | None = File(None),
+    lea_invoice: UploadFile | None = File(None),
+    os: UploadFile | None = File(None),
+    lea_os: UploadFile | None = File(None),
     # Customers only (individual mode)
-    pt:                UploadFile | None = File(None),
-    employee_invoice:  UploadFile | None = File(None),
-    employee_os:       UploadFile | None = File(None),
+    pt: UploadFile | None = File(None),
+    employee_invoice: UploadFile | None = File(None),
+    employee_os: UploadFile | None = File(None),
 ):
     """Validate migration files for Products, Vendors, or Customers domain."""
 
@@ -106,10 +127,10 @@ async def validate_files(
             report = validate_combined_vendor(await _read(combined_file))
         else:
             files = {
-                "invoice":     await _read(invoice),
+                "invoice": await _read(invoice),
                 "lea_invoice": await _read(lea_invoice),
-                "os":          await _read(os),
-                "lea_os":      await _read(lea_os),
+                "os": await _read(os),
+                "lea_os": await _read(lea_os),
             }
             if not any(files.values()):
                 raise HTTPException(status_code=400, detail="Upload at least one file.")
@@ -120,13 +141,13 @@ async def validate_files(
             report = validate_combined_customer(await _read(combined_file))
         else:
             files = {
-                "pt":               await _read(pt),
-                "invoice":          await _read(invoice),
-                "lea_invoice":      await _read(lea_invoice),
-                "os":               await _read(os),
-                "lea_os":           await _read(lea_os),
+                "pt": await _read(pt),
+                "invoice": await _read(invoice),
+                "lea_invoice": await _read(lea_invoice),
+                "os": await _read(os),
+                "lea_os": await _read(lea_os),
                 "employee_invoice": await _read(employee_invoice),
-                "employee_os":      await _read(employee_os),
+                "employee_os": await _read(employee_os),
             }
             if not any(files.values()):
                 raise HTTPException(status_code=400, detail="Upload at least one file.")
@@ -152,24 +173,53 @@ async def validate_files(
 async def export_csv(
     domain: str = Form("Products"),
     legal_entity: str = Form(""),
-    combined_file:     UploadFile | None = File(None),
-    global_file:       UploadFile | None = File(None),
-    local_file:        UploadFile | None = File(None),
-    invoice:           UploadFile | None = File(None),
-    lea_invoice:       UploadFile | None = File(None),
-    os:                UploadFile | None = File(None),
-    lea_os:            UploadFile | None = File(None),
-    pt:                UploadFile | None = File(None),
-    employee_invoice:  UploadFile | None = File(None),
-    employee_os:       UploadFile | None = File(None),
+    combined_file: UploadFile | None = File(None),
+    global_file: UploadFile | None = File(None),
+    local_file: UploadFile | None = File(None),
+    invoice: UploadFile | None = File(None),
+    lea_invoice: UploadFile | None = File(None),
+    os: UploadFile | None = File(None),
+    lea_os: UploadFile | None = File(None),
+    pt: UploadFile | None = File(None),
+    employee_invoice: UploadFile | None = File(None),
+    employee_os: UploadFile | None = File(None),
 ):
     """Run validation and return errors as a downloadable CSV."""
     if domain == "Products":
-        report = validate_combined_products(await _read(combined_file)) if combined_file else validate(await _read(global_file), await _read(local_file))
+        report = (
+            validate_combined_products(await _read(combined_file))
+            if combined_file
+            else validate(await _read(global_file), await _read(local_file))
+        )
     elif domain == "Vendors":
-        report = validate_combined_vendor(await _read(combined_file)) if combined_file else validate_vendor({"invoice": await _read(invoice), "lea_invoice": await _read(lea_invoice), "os": await _read(os), "lea_os": await _read(lea_os)})
+        report = (
+            validate_combined_vendor(await _read(combined_file))
+            if combined_file
+            else validate_vendor(
+                {
+                    "invoice": await _read(invoice),
+                    "lea_invoice": await _read(lea_invoice),
+                    "os": await _read(os),
+                    "lea_os": await _read(lea_os),
+                }
+            )
+        )
     elif domain == "Customers":
-        report = validate_combined_customer(await _read(combined_file)) if combined_file else validate_customer({"pt": await _read(pt), "invoice": await _read(invoice), "lea_invoice": await _read(lea_invoice), "os": await _read(os), "lea_os": await _read(lea_os), "employee_invoice": await _read(employee_invoice), "employee_os": await _read(employee_os)})
+        report = (
+            validate_combined_customer(await _read(combined_file))
+            if combined_file
+            else validate_customer(
+                {
+                    "pt": await _read(pt),
+                    "invoice": await _read(invoice),
+                    "lea_invoice": await _read(lea_invoice),
+                    "os": await _read(os),
+                    "lea_os": await _read(lea_os),
+                    "employee_invoice": await _read(employee_invoice),
+                    "employee_os": await _read(employee_os),
+                }
+            )
+        )
     else:
         raise HTTPException(status_code=400, detail=f"Unknown domain '{domain}'.")
 
@@ -198,10 +248,9 @@ def get_lovs(attribute: str | None = None, q: str | None = None):
     if attribute:
         df = df[df["attribute"].astype(str).str.strip() == attribute]
     if q:
-        mask = (
-            df["key"].astype(str).str.contains(q, case=False, na=False)
-            | df["description"].astype(str).str.contains(q, case=False, na=False)
-        )
+        mask = df["key"].astype(str).str.contains(q, case=False, na=False) | df[
+            "description"
+        ].astype(str).str.contains(q, case=False, na=False)
         df = df[mask]
 
     return df.fillna("").to_dict(orient="records")
@@ -211,7 +260,9 @@ def get_lovs(attribute: str | None = None, q: str | None = None):
 def get_lov_attributes():
     """Return sorted list of all attribute names."""
     df = _get_lovs_df()
-    attributes = sorted(df["attribute"].dropna().astype(str).str.strip().unique().tolist())
+    attributes = sorted(
+        df["attribute"].dropna().astype(str).str.strip().unique().tolist()
+    )
     return attributes
 
 
@@ -219,12 +270,16 @@ def get_lov_attributes():
 # Diff endpoints
 # ---------------------------------------------------------------------------
 
+
 @app.get("/diff/config")
 def get_diff_config(type: str):
     """Return available sheet names for the given diff type."""
     cfg = DIFF_CONFIG.get(type)
     if cfg is None:
-        raise HTTPException(status_code=400, detail=f"Unknown diff type '{type}'. Valid: {list(DIFF_CONFIG)}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown diff type '{type}'. Valid: {list(DIFF_CONFIG)}",
+        )
     return {"sheets": list(cfg["sheets"].keys())}
 
 
