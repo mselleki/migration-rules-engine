@@ -55,10 +55,23 @@ function KeyBadge({ value }) {
 
 // ─── Add LOV modal ───────────────────────────────────────────────────────────
 
-function AddLovModal({ attributes, onAdd, onClose }) {
-  const [attribute, setAttribute] = useState("");
+const INPUT_CLS =
+  "w-full px-3 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500";
+
+function AddLovModal({ attributes, selectedAttr, onAdd, onClose }) {
+  // "existing" = add a value to an existing attribute
+  // "new"      = create a new attribute with one or more values
+  const [mode, setMode] = useState("existing");
+
+  // "existing" mode state
+  const [attribute, setAttribute] = useState(selectedAttr || "");
   const [key, setKey] = useState("");
   const [description, setDescription] = useState("");
+
+  // "new" mode state
+  const [newAttrName, setNewAttrName] = useState("");
+  const [values, setValues] = useState([{ key: "", description: "" }]);
+
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -69,15 +82,38 @@ function AddLovModal({ attributes, onAdd, onClose }) {
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  const addValueRow = () =>
+    setValues((v) => [...v, { key: "", description: "" }]);
+  const removeValueRow = (i) =>
+    setValues((v) => v.filter((_, idx) => idx !== i));
+  const updateValue = (i, field, val) =>
+    setValues((v) =>
+      v.map((row, idx) => (idx === i ? { ...row, [field]: val } : row)),
+    );
+
+  const filledValues = values.filter((v) => v.key.trim());
+  const canSubmit =
+    mode === "existing"
+      ? attribute && key.trim()
+      : newAttrName.trim() && filledValues.length > 0;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!attribute.trim() || !key.trim()) return;
+    if (!canSubmit) return;
     setSubmitting(true);
-    await onAdd({
-      attribute: attribute.trim(),
-      key: key.trim(),
-      description: description.trim(),
-    });
+    if (mode === "existing") {
+      await onAdd([
+        { attribute, key: key.trim(), description: description.trim() },
+      ]);
+    } else {
+      await onAdd(
+        filledValues.map((v) => ({
+          attribute: newAttrName.trim(),
+          key: v.key.trim(),
+          description: v.description.trim(),
+        })),
+      );
+    }
     setSubmitting(false);
     onClose();
   };
@@ -88,9 +124,10 @@ function AddLovModal({ attributes, onAdd, onClose }) {
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xl w-full max-w-sm mx-4 p-5"
+        className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xl w-full max-w-md mx-4 p-5"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
             <Plus className="h-4 w-4 text-brand-500" />
@@ -104,59 +141,145 @@ function AddLovModal({ attributes, onAdd, onClose }) {
           </button>
         </div>
 
+        {/* Mode toggle */}
+        <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg mb-4">
+          {[
+            { id: "existing", label: "Add to existing attribute" },
+            { id: "new", label: "New attribute" },
+          ].map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setMode(id)}
+              className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                mode === id
+                  ? "bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-3">
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-              Attribute
-            </label>
-            <input
-              list="attr-suggestions"
-              value={attribute}
-              onChange={(e) => setAttribute(e.target.value)}
-              placeholder="e.g. Brand, Status…"
-              autoFocus
-              required
-              className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
-            />
-            <datalist id="attr-suggestions">
-              {attributes.map((a) => (
-                <option key={a} value={a} />
-              ))}
-            </datalist>
-          </div>
+          {mode === "existing" ? (
+            <>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                  Attribute
+                </label>
+                <select
+                  value={attribute}
+                  onChange={(e) => setAttribute(e.target.value)}
+                  autoFocus
+                  required
+                  className={INPUT_CLS}
+                >
+                  <option value="">Select an attribute…</option>
+                  {attributes.map((a) => (
+                    <option key={a} value={a}>
+                      {a}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                  Key
+                </label>
+                <input
+                  value={key}
+                  onChange={(e) => setKey(e.target.value)}
+                  placeholder="e.g. ACTIVE"
+                  required
+                  className={INPUT_CLS}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                  Description{" "}
+                  <span className="font-normal text-slate-400">(optional)</span>
+                </label>
+                <input
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="e.g. Active status"
+                  className={INPUT_CLS}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                  Attribute name
+                </label>
+                <input
+                  value={newAttrName}
+                  onChange={(e) => setNewAttrName(e.target.value)}
+                  placeholder="e.g. Storage Temperature"
+                  autoFocus
+                  required
+                  className={INPUT_CLS}
+                />
+              </div>
 
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-              Key
-            </label>
-            <input
-              value={key}
-              onChange={(e) => setKey(e.target.value)}
-              placeholder="e.g. ACTIVE"
-              required
-              className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-              Description{" "}
-              <span className="font-normal text-slate-400">(optional)</span>
-            </label>
-            <input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="e.g. Active status"
-              className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
-            />
-          </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
+                  Values
+                </label>
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-0.5">
+                  {values.map((v, i) => (
+                    <div key={i} className="flex gap-2 items-center">
+                      <input
+                        value={v.key}
+                        onChange={(e) => updateValue(i, "key", e.target.value)}
+                        placeholder="Key"
+                        className="w-28 flex-shrink-0 px-2.5 py-1.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      />
+                      <input
+                        value={v.description}
+                        onChange={(e) =>
+                          updateValue(i, "description", e.target.value)
+                        }
+                        placeholder="Description (optional)"
+                        className="flex-1 px-2.5 py-1.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      />
+                      {values.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeValueRow(i)}
+                          className="flex-shrink-0 text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 transition-colors"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={addValueRow}
+                  className="mt-2 text-xs text-brand-500 hover:text-brand-600 flex items-center gap-1 transition-colors"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add another value
+                </button>
+              </div>
+            </>
+          )}
 
           <button
             type="submit"
-            disabled={!attribute.trim() || !key.trim() || submitting}
+            disabled={!canSubmit || submitting}
             className="w-full py-2 rounded-lg bg-brand-500 hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors mt-1"
           >
-            {submitting ? "Adding…" : "Add entry"}
+            {submitting
+              ? "Saving…"
+              : mode === "new"
+                ? `Add attribute${filledValues.length > 0 ? ` (${filledValues.length} value${filledValues.length > 1 ? "s" : ""})` : ""}`
+                : "Add value"}
           </button>
         </form>
       </div>
@@ -309,12 +432,14 @@ export default function LovExplorer() {
     setSearch("");
   }, []);
 
-  const handleAddLov = async ({ attribute, key, description }) => {
-    await fetch(`${API}/lovs/custom`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ attribute, key, description, user: name }),
-    });
+  const handleAddLov = async (entries) => {
+    for (const entry of entries) {
+      await fetch(`${API}/lovs/custom`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...entry, user: name }),
+      });
+    }
     setRefreshKey((k) => k + 1);
   };
 
@@ -604,6 +729,7 @@ export default function LovExplorer() {
       {showAddModal && (
         <AddLovModal
           attributes={attributeNames}
+          selectedAttr={selectedAttr}
           onAdd={handleAddLov}
           onClose={() => setShowAddModal(false)}
         />
