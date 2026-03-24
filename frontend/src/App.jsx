@@ -18,6 +18,7 @@ import {
   Sun,
   Moon,
   Keyboard,
+  Info,
   X,
 } from "lucide-react";
 import { HistoryProvider } from "./context/HistoryContext.jsx";
@@ -31,12 +32,42 @@ import DiffViewer from "./pages/DiffViewer.jsx";
 import TrackerValidator from "./pages/TrackerValidator.jsx";
 
 const NAV = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/validator", label: "Validator", icon: CheckSquare },
-  { to: "/tracker", label: "Tracker", icon: ClipboardCheck },
-  { to: "/lov-explorer", label: "LOV Explorer", icon: List },
-  { to: "/migrations", label: "Migrations", icon: GitMerge },
-  { to: "/diff", label: "Diff", icon: GitCompare },
+  {
+    to: "/",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    desc: "Overview of recent validation runs - stats, error trends, and quick access to last results.",
+  },
+  {
+    to: "/validator",
+    label: "Validator",
+    icon: CheckSquare,
+    desc: "Upload and validate migration Excel files for Products, Vendors, or Customers against all business rules.",
+  },
+  {
+    to: "/tracker",
+    label: "Tracker",
+    icon: ClipboardCheck,
+    desc: "Validate a P1 Data Cleansing tracker file shared with the business - checks mandatory fields, LOV values, and formats.",
+  },
+  {
+    to: "/lov-explorer",
+    label: "LOV Explorer",
+    icon: List,
+    desc: "Browse and search all List-of-Values from the reference workbook (brands, attribute groups, commodity codes, etc.).",
+  },
+  {
+    to: "/migrations",
+    label: "Migrations",
+    icon: GitMerge,
+    desc: "History of all validation runs in this session - re-open any past result without re-uploading.",
+  },
+  {
+    to: "/diff",
+    label: "Diff",
+    icon: GitCompare,
+    desc: "Compare two versions of a migration Excel file side-by-side and highlight row-level changes.",
+  },
 ];
 
 const SHORTCUTS = [
@@ -112,6 +143,58 @@ function ShortcutsModal({ onClose }) {
             ))}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── Pages guide modal ───────────────────────────────────────────────────────
+
+function PagesGuideModal({ onClose }) {
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xl w-full max-w-md mx-4 p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+            <Info className="h-4 w-4 text-slate-400" />
+            Pages Guide
+          </span>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <ul className="space-y-3">
+          {NAV.map(({ label, icon: Icon, desc }) => (
+            <li key={label} className="flex gap-3">
+              <div className="mt-0.5 flex-shrink-0 h-6 w-6 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                <Icon className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                  {label}
+                </p>
+                <p className="text-xs text-slate-400 mt-0.5">{desc}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );
@@ -249,6 +332,7 @@ function AnimatedRoutes() {
 function AppInner() {
   const [showLov, setShowLov] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   useKeyboardShortcuts(setShowLov, setShowHelp);
 
   return (
@@ -280,7 +364,7 @@ function AppInner() {
             ))}
           </nav>
 
-          {/* Right side: LOV search trigger + shortcuts + theme */}
+          {/* Right side: LOV search trigger + guide + shortcuts + theme */}
           <div className="ml-auto flex items-center gap-1">
             <button
               onClick={() => setShowLov(true)}
@@ -292,6 +376,14 @@ function AppInner() {
               <kbd className="px-1 py-px font-mono rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                 ⌘K
               </kbd>
+            </button>
+            <button
+              onClick={() => setShowGuide((v) => !v)}
+              aria-label="Pages Guide"
+              title="Pages Guide"
+              className="h-8 w-8 flex items-center justify-center rounded text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors"
+            >
+              <Info className="h-4 w-4" />
             </button>
             <button
               onClick={() => setShowHelp((v) => !v)}
@@ -310,6 +402,7 @@ function AppInner() {
 
       {showLov && <LovSearchModal onClose={() => setShowLov(false)} />}
       {showHelp && <ShortcutsModal onClose={() => setShowHelp(false)} />}
+      {showGuide && <PagesGuideModal onClose={() => setShowGuide(false)} />}
     </div>
   );
 }
