@@ -2,6 +2,7 @@
 // MVP → P1 → P2 (anything not listed is Phase 2 by default).
 
 const MVP_ATTRS = new Set([
+  // ── Products ──
   "SUPC",
   "Description",
   "Legal Entity",
@@ -20,9 +21,43 @@ const MVP_ATTRS = new Set([
   "Proprietary Product",
   "Split Product",
   "Legally packaged to be sold as a split?",
+  // ── Vendor — Invoice ──
+  "Company Registration Number",
+  "VAT",
+  "Address Line 1",
+  "Address Line 2",
+  "Town/City",
+  "County/District",
+  "Zip/Postal Code",
+  "Country",
+  "Currency Code",
+  "Payment Terms",
 ]);
 
 const PHASE1_ATTRS = new Set([
+  // ── Vendor — Invoice ──
+  "Method of Payment",
+  "VAT Group",
+  "Known As Name",
+  "Legal Name",
+  "EU Master Vendor",
+  "Certificate of Insurance",
+  "Hold Harmless",
+  "GLN",
+  "Address Purpose",
+  "Vendor Status",
+  "Intercompany/Trading Partner",
+  "Duty Paid/Bond",
+  // ── Vendor — OrderingShipping ──
+  "Delivery Terms",
+  "Mode of Delivery",
+  "Site",
+  "Warehouse",
+  "Buyer Group",
+  "Nominated Vendor",
+  "Vendor Managed Inventory (VMI)",
+  "Facility Registration Number",
+  // ── Products ──
   "Case Length (cm)",
   "Case Width (cm)",
   "Case Height (cm)",
