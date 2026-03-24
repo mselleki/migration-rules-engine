@@ -822,9 +822,20 @@ Customer files contain **7 templates** (sheets): `PT`, `Invoice`, `LEA_Invoice`,
 
 ### Product — Local Product Data
 
-| Rule | Category | Description | Status |
+| Rule | Category | Key column(s) | Status |
 |---|---|---|---|
-| — | — | No rules implemented yet | ⏳ Planned |
+| LCL-U0 | Uniqueness | SUPC unique | ✅ Active |
+| LCL-U1 | Uniqueness | STEP ID unique | ✅ Active |
+| LCL-F1 | Formatting | Special characters (Local Product Description, Ecom Description) | ✅ Active |
+| LCL-L1 | LOV | Legal Entity (13 entity names) | ✅ Active |
+| LCL-L2 | LOV | Status (Active / Delisted / Archived) | ✅ Active |
+| LCL-L3 | LOV | Yes/No (Proprietary Product?, Split Product) | ✅ Active |
+| LCL-L4 | LOV | Min/Max Temperature (TEMP18 / TEMP0 / TEMP5 / TEMP8) | ✅ Active |
+| LCL-L5 | LOV | Item VAT Purchasing/Selling (I-STD / I-ZERO / I-RED) | ✅ Active |
+| LCL-L6 | LOV | Item Buyer Group (from reference/Buyer Group.xlsx) | ✅ Active |
+| LCL-L7 | LOV | Storage Area (F / C / D) | ✅ Active |
+| LCL-L8 | LOV | Product Source Type (STOCKED / JUST_IN_TIME / LEAD_TIME / MAKE_TO_ORDER) | ✅ Active |
+| LCL-L9 | LOV | Ecom Hierarchy Level 2 ID (200+ codes) | ✅ Active |
 
 ### Customer
 
@@ -839,6 +850,28 @@ Customer files contain **7 templates** (sheets): `PT`, `Invoice`, `LEA_Invoice`,
 
 ### Vendor
 
-| Rule | Category | Description | Status |
+| Rule | Sheet | Key column(s) | Status |
 |---|---|---|---|
-| — | — | No rules implemented yet | ⏳ Planned |
+| V-U1 | Invoice | StepID unique | ✅ Active |
+| V-B1 | Invoice | Mandatory address fields (Address Line 1, Town/City, Zip/Postal Code) | ✅ Active |
+| V-B2 | Invoice | Company Registration Number (mandatory + unique) | ✅ Active |
+| V-L1 | Invoice | Intercompany/Trading Partner (17 entity codes) | ✅ Active |
+| V-L9 | Invoice | Trade/Indirect Vendor (Trade / Indirect) | ✅ Active |
+| V-L11 | Invoice | Country (ISO 3166-1 alpha-2) | ✅ Active |
+| V-F1 | Invoice | Search Name (≤20 chars, no spaces, allowed chars) | ✅ Active |
+| V-U2 | LEA_Invoice | SUVC Invoice unique | ✅ Active |
+| V-L8 | LEA_Invoice | Legal Entity (13 entity names) | ✅ Active |
+| V-L2 | LEA_Invoice | Method of Payment (21 codes) | ✅ Active |
+| V-L3 | LEA_Invoice | VAT Group (I-STD / I-ZERO / I-RED) | ✅ Active |
+| V-L4 | LEA_Invoice | Status (Active / Delisted / Archived) | ✅ Active |
+| V-L13 | LEA_Invoice | Cost Centre (25 codes) | ✅ Active |
+| V-U3 | OS | SUVC Ordering/Shipping unique | ✅ Active |
+| V-L12 | OS | Country (ISO 3166-1 alpha-2) | ✅ Active |
+| V-F2 | OS | Search Name (≤20 chars, no spaces, allowed chars) | ✅ Active |
+| V-U4 | LEA_OS | SUVC Ordering/Shipping unique | ✅ Active |
+| V-L10 | LEA_OS | Legal Entity (13 entity names) | ✅ Active |
+| V-L5 | LEA_OS | Delivery Terms / Incoterms (11 codes) | ✅ Active |
+| V-L6 | LEA_OS | Mode of Delivery (23 codes) | ✅ Active |
+| V-L7 | LEA_OS | Status (Active / Delisted / Archived) | ✅ Active |
+| V-L14 | LEA_OS | Buyer Group (from reference/Buyer Group.xlsx) | ✅ Active |
+| V-L15 | LEA_OS | Warehouse Code (IW001 / MK001 / EK001) | ✅ Active |
