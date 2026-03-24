@@ -289,6 +289,27 @@ def get_lov_preview():
 # ---------------------------------------------------------------------------
 
 
+@app.post("/validate/tracker")
+async def validate_tracker_endpoint(
+    domain: str = Form(...),
+    file: UploadFile = File(...),
+):
+    """Validate a P1 Data Cleansing tracker file for Products, Vendors, or Customers."""
+    from tracker_validator import validate_tracker
+
+    file_bytes = await file.read()
+    report = validate_tracker(domain, file_bytes)
+    return {
+        "summary": {
+            "total_rows": report.total_rows,
+            "total_errors": report.total_errors,
+            "errors_by_rule": report.errors_by_rule,
+        },
+        "errors": report.errors,
+        "warnings": report.warnings,
+    }
+
+
 @app.get("/diff/config")
 def get_diff_config(type: str):
     """Return available sheet names for the given diff type."""

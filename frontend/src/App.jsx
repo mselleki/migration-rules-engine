@@ -14,6 +14,7 @@ import {
   List,
   GitMerge,
   GitCompare,
+  ClipboardCheck,
   Sun,
   Moon,
   Keyboard,
@@ -27,10 +28,12 @@ import Validator from "./pages/Validator.jsx";
 import LovExplorer from "./pages/LovExplorer.jsx";
 import Migrations from "./pages/Migrations.jsx";
 import DiffViewer from "./pages/DiffViewer.jsx";
+import TrackerValidator from "./pages/TrackerValidator.jsx";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/validator", label: "Validator", icon: CheckSquare },
+  { to: "/tracker", label: "Tracker", icon: ClipboardCheck },
   { to: "/lov-explorer", label: "LOV Explorer", icon: List },
   { to: "/migrations", label: "Migrations", icon: GitMerge },
   { to: "/diff", label: "Diff", icon: GitCompare },
@@ -40,9 +43,9 @@ const SHORTCUTS = [
   { keys: ["Ctrl", "K"], mac: ["⌘", "K"], desc: "LOV search (modal)" },
   { keys: ["/"], mac: ["/"], desc: "LOV search (modal)" },
   {
-    keys: ["Alt", "1–5"],
-    mac: ["⌥", "1–5"],
-    desc: "Navigate to page 1–5",
+    keys: ["Alt", "1–6"],
+    mac: ["⌥", "1–6"],
+    desc: "Navigate to page 1–6",
   },
   { keys: ["T"], mac: ["T"], desc: "Toggle dark / light" },
   { keys: ["?"], mac: ["?"], desc: "Show this panel" },
@@ -152,11 +155,12 @@ function useKeyboardShortcuts(setShowLov, setShowHelp) {
         return;
       }
 
-      // Alt+1–5 navigation
+      // Alt+1–6 navigation
       if (e.altKey && !e.ctrlKey && !e.metaKey) {
         const routes = [
           "/",
           "/validator",
+          "/tracker",
           "/lov-explorer",
           "/migrations",
           "/diff",
@@ -229,6 +233,7 @@ function AnimatedRoutes() {
           <Routes location={location}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/validator" element={<Validator />} />
+            <Route path="/tracker" element={<TrackerValidator />} />
             <Route path="/lov-explorer" element={<LovExplorer />} />
             <Route path="/migrations" element={<Migrations />} />
             <Route path="/diff" element={<DiffViewer />} />
