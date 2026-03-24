@@ -266,6 +266,24 @@ def get_lov_attributes():
     return attributes
 
 
+@app.get("/lovs/preview")
+def get_lov_preview():
+    """Return per-attribute summary: name, total count, and first 3 example keys."""
+    df = _get_lovs_df()
+    result = []
+    for attr, group in df.groupby("attribute"):
+        keys = group["key"].dropna().astype(str).str.strip().tolist()
+        result.append(
+            {
+                "attribute": str(attr).strip(),
+                "count": len(keys),
+                "examples": keys[:3],
+            }
+        )
+    result.sort(key=lambda x: x["attribute"])
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Diff endpoints
 # ---------------------------------------------------------------------------
