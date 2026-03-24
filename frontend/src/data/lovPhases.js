@@ -256,6 +256,57 @@ export function getPhase(attribute) {
   return "Phase 2";
 }
 
+// ── Sidebar grouping ─────────────────────────────────────────────────────────
+
+export const LOV_GROUPS = {
+  Allergens: new Set([
+    "Almonds",
+    "Barley",
+    "Brazil Nuts",
+    "Cashew Nuts",
+    "Celery and products thereof",
+    "Crustaceans and products thereof",
+    "Eggs and products thereof",
+    "Fish and products thereof",
+    "Gluten at > 20 ppm",
+    "Hazelnuts",
+    "Kamut",
+    "Lupin and products thereof",
+    "Macadamia Nuts/Queensland Nuts",
+    "Milk and products thereof",
+    "Molluscs and products thereof",
+    "Mustard and products thereof",
+    "Nuts",
+    "Oats",
+    "Peanuts and products thereof",
+    "Pecan Nuts",
+    "Pistachio Nuts",
+    "Rye",
+    "Sesame seeds and products thereof",
+    "Soybeans and products thereof",
+    "Spelt",
+    "Sulphur Dioxide > 10ppm",
+    "Walnuts",
+    "Wheat",
+  ]),
+  Certifications: new Set([
+    "Dairy Free",
+    "Gluten Free",
+    "Halal",
+    "Kosher",
+    "Vegan",
+    "Vegetarian",
+    "Organic",
+  ]),
+};
+
+/** Reverse map: attribute name → group name (e.g. "Almonds" → "Allergens") */
+export const ATTR_GROUP = Object.fromEntries(
+  Object.entries(LOV_GROUPS).flatMap(([group, attrs]) =>
+    [...attrs].map((attr) => [attr, group]),
+  ),
+);
+
 export const PHASE_STYLE = {
   MVP: {
     label: "MVP",

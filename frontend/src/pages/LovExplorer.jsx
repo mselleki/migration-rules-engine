@@ -1,10 +1,19 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Search, X, Copy, CheckCheck, Plus, Trash2, Clock } from "lucide-react";
+import {
+  Search,
+  X,
+  Copy,
+  CheckCheck,
+  Plus,
+  Trash2,
+  Clock,
+  ChevronRight,
+} from "lucide-react";
 import { Badge } from "../components/ui/badge.jsx";
 import { Skeleton } from "../components/ui/skeleton.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
-import { getPhase, PHASE_STYLE } from "../data/lovPhases.js";
+import { getPhase, PHASE_STYLE, ATTR_GROUP } from "../data/lovPhases.js";
 import API from "../api.js";
 
 function useDebounce(value, delay = 300) {
@@ -461,11 +470,55 @@ export default function LovExplorer() {
       .finally(() => setHistoryLoading(false));
   };
 
-  const filteredPreviews = attrFilter
-    ? previews.filter((p) =>
-        p.attribute.toLowerCase().includes(attrFilter.toLowerCase()),
-      )
-    : previews;
+  const [expandedGroups, setExpandedGroups] = useState(new Set());
+  const toggleGroup = useCallback((name) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      next.has(name) ? next.delete(name) : next.add(name);
+      return next;
+    });
+  }, []);
+
+  // Build sidebar items: group allergens/certifications, flat list when filtering
+  const sidebarItems = useMemo(() => {
+    const source = attrFilter
+      ? previews.filter((p) =>
+          p.attribute.toLowerCase().includes(attrFilter.toLowerCase()),
+        )
+      : previews;
+
+    if (attrFilter) {
+      return source.map((p) => ({ type: "item", ...p }));
+    }
+
+    const groupedMembers = {};
+    const regularItems = [];
+    for (const preview of source) {
+      const groupName = ATTR_GROUP[preview.attribute];
+      if (groupName) {
+        if (!groupedMembers[groupName]) groupedMembers[groupName] = [];
+        groupedMembers[groupName].push(preview);
+      } else {
+        regularItems.push({ type: "item", ...preview });
+      }
+    }
+
+    const result = [...regularItems];
+    for (const [name, members] of Object.entries(groupedMembers)) {
+      result.push({
+        type: "group",
+        name,
+        members,
+        totalCount: members.reduce((s, m) => s + m.count, 0),
+      });
+    }
+    result.sort((a, b) =>
+      (a.type === "group" ? a.name : a.attribute).localeCompare(
+        b.type === "group" ? b.name : b.attribute,
+      ),
+    );
+    return result;
+  }, [previews, attrFilter]);
 
   // Virtual list
   const parentRef = useRef(null);
@@ -524,50 +577,104 @@ export default function LovExplorer() {
                   <Skeleton key={i} className="h-10" />
                 ))}
               </div>
-            ) : filteredPreviews.length === 0 ? (
+            ) : sidebarItems.length === 0 ? (
               <p className="px-3 py-4 text-xs text-slate-400 text-center">
                 No match
               </p>
             ) : (
-              filteredPreviews.map(({ attribute, count, examples }) => (
-                <button
-                  key={attribute}
-                  onClick={() => selectAttr(attribute)}
-                  className={`w-full text-left px-3 py-2.5 border-b border-slate-50 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors ${
-                    selectedAttr === attribute
-                      ? "bg-brand-50 dark:bg-brand-900/20 border-l-2 border-l-brand-500"
-                      : ""
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-medium text-slate-700 dark:text-slate-200 truncate">
-                      {attribute}
-                    </span>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      {(() => {
-                        const phase = getPhase(attribute);
-                        const s = PHASE_STYLE[phase];
-                        return (
-                          <span
-                            title={phase}
-                            className={`text-[9px] font-bold px-1 py-px rounded ${s.className}`}
-                          >
-                            {s.label}
-                          </span>
-                        );
-                      })()}
-                      <span className="text-[10px] text-slate-400">
-                        {count}
-                      </span>
-                    </div>
+              sidebarItems.map((item) =>
+                item.type === "group" ? (
+                  <div key={item.name}>
+                    {/* Group header */}
+                    <button
+                      onClick={() => toggleGroup(item.name)}
+                      className="w-full text-left px-3 py-2 border-b border-slate-50 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <ChevronRight
+                          className={`h-3 w-3 flex-shrink-0 text-slate-400 transition-transform duration-150 ${
+                            expandedGroups.has(item.name) ? "rotate-90" : ""
+                          }`}
+                        />
+                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 flex-1 truncate">
+                          {item.name}
+                        </span>
+                        <span className="text-[9px] font-bold px-1 py-px rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 flex-shrink-0">
+                          P1
+                        </span>
+                        <span className="text-[10px] text-slate-400 flex-shrink-0">
+                          {item.totalCount}
+                        </span>
+                      </div>
+                    </button>
+                    {/* Group members */}
+                    {expandedGroups.has(item.name) &&
+                      item.members.map(({ attribute, count, examples }) => (
+                        <button
+                          key={attribute}
+                          onClick={() => selectAttr(attribute)}
+                          className={`w-full text-left pl-6 pr-3 py-2 border-b border-slate-50 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors ${
+                            selectedAttr === attribute
+                              ? "bg-brand-50 dark:bg-brand-900/20 border-l-2 border-l-brand-500"
+                              : ""
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-xs text-slate-600 dark:text-slate-300 truncate">
+                              {attribute}
+                            </span>
+                            <span className="text-[10px] text-slate-400 flex-shrink-0">
+                              {count}
+                            </span>
+                          </div>
+                          {examples.length > 0 && (
+                            <p className="text-[10px] text-slate-400 mt-0.5 truncate">
+                              {examples.join(" · ")}
+                            </p>
+                          )}
+                        </button>
+                      ))}
                   </div>
-                  {examples.length > 0 && (
-                    <p className="text-[10px] text-slate-400 mt-0.5 truncate">
-                      {examples.join(" · ")}
-                    </p>
-                  )}
-                </button>
-              ))
+                ) : (
+                  <button
+                    key={item.attribute}
+                    onClick={() => selectAttr(item.attribute)}
+                    className={`w-full text-left px-3 py-2.5 border-b border-slate-50 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors ${
+                      selectedAttr === item.attribute
+                        ? "bg-brand-50 dark:bg-brand-900/20 border-l-2 border-l-brand-500"
+                        : ""
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-xs font-medium text-slate-700 dark:text-slate-200 truncate">
+                        {item.attribute}
+                      </span>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {(() => {
+                          const phase = getPhase(item.attribute);
+                          const s = PHASE_STYLE[phase];
+                          return (
+                            <span
+                              title={phase}
+                              className={`text-[9px] font-bold px-1 py-px rounded ${s.className}`}
+                            >
+                              {s.label}
+                            </span>
+                          );
+                        })()}
+                        <span className="text-[10px] text-slate-400">
+                          {item.count}
+                        </span>
+                      </div>
+                    </div>
+                    {item.examples.length > 0 && (
+                      <p className="text-[10px] text-slate-400 mt-0.5 truncate">
+                        {item.examples.join(" · ")}
+                      </p>
+                    )}
+                  </button>
+                ),
+              )
             )}
           </div>
         </div>
