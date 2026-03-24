@@ -652,6 +652,7 @@ export default function LovExplorer() {
                       <div className="flex items-center gap-1 flex-shrink-0">
                         {(() => {
                           const phase = getPhase(item.attribute);
+                          if (!phase) return null;
                           const s = PHASE_STYLE[phase];
                           return (
                             <span

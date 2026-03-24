@@ -253,7 +253,7 @@ const PHASE1_ATTRS = new Set([
 export function getPhase(attribute) {
   if (MVP_ATTRS.has(attribute)) return "MVP";
   if (PHASE1_ATTRS.has(attribute)) return "Phase 1";
-  return "Phase 2";
+  return null;
 }
 
 // ── Sidebar grouping ─────────────────────────────────────────────────────────
