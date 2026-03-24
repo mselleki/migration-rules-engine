@@ -320,6 +320,14 @@ def get_hardcoded_lovs() -> pd.DataFrame:
         "Sulphur Dioxide > 10ppm",
         "Walnuts",
         "Wheat",
+        # Free-from / certifications
+        "Dairy Free",
+        "Gluten Free",
+        "Halal",
+        "Kosher",
+        "Vegan",
+        "Vegetarian",
+        "Organic",
     ]
     _ALLERGEN_LOVS = [
         ("0", "Does Not Contain"),
