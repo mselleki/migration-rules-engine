@@ -375,6 +375,7 @@ async def validate_tracker_endpoint(
         },
         "errors": report.errors,
         "warnings": report.warnings,
+        "completion": report.completion,
     }
 
 

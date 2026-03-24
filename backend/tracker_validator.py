@@ -265,6 +265,27 @@ def _get_id(row: pd.Series, df: pd.DataFrame) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Completion helpers
+# ---------------------------------------------------------------------------
+
+
+def _compute_completion(df: pd.DataFrame, sheet_name: str) -> dict:
+    """Return per-column fill rates for completion analysis."""
+    total = len(df)
+    columns = []
+    for col in df.columns:
+        filled = int(df[col].apply(lambda v: not is_empty(v)).sum())
+        columns.append(
+            {
+                "attribute": str(col).strip(),
+                "filled": filled,
+                "rate": round(filled / total, 4) if total > 0 else 0.0,
+            }
+        )
+    return {"sheet": sheet_name, "total_rows": total, "columns": columns}
+
+
+# ---------------------------------------------------------------------------
 # Generic check helpers
 # ---------------------------------------------------------------------------
 
@@ -628,6 +649,7 @@ def _validate_product_tracker(xl: pd.ExcelFile, report: ValidationReport) -> Non
 
     df = df.dropna(how="all").reset_index(drop=True)
     report.global_row_count = len(df)
+    report.completion.append(_compute_completion(df, sheet))
 
     for rule_fn in ALL_GLOBAL_RULES:
         try:
@@ -660,6 +682,7 @@ def _validate_vendor_tracker(xl: pd.ExcelFile, report: ValidationReport) -> None
 
         df = _rename_tracker_cols(df, col_map)
         report.global_row_count += len(df)
+        report.completion.append(_compute_completion(df, sheet_name))
 
         try:
             report.errors.extend(validate_fn(df, mandatory_cols))
@@ -690,6 +713,7 @@ def _validate_customer_tracker(xl: pd.ExcelFile, report: ValidationReport) -> No
 
         df = _rename_tracker_cols(df, col_map)
         report.global_row_count += len(df)
+        report.completion.append(_compute_completion(df, sheet_name))
 
         try:
             report.errors.extend(validate_fn(df, mandatory_cols))

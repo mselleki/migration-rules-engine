@@ -14,7 +14,9 @@ from rules.customer_rules import (
     ALL_LEA_INVOICE_RULES as C_LEA_INVOICE_RULES,
     ALL_OS_RULES as C_OS_RULES,
     ALL_LEA_OS_RULES as C_LEA_OS_RULES,
-    ALL_EMP_INVOICE_RULES, ALL_EMP_OS_RULES, ALL_PT_RULES,
+    ALL_EMP_INVOICE_RULES,
+    ALL_EMP_OS_RULES,
+    ALL_PT_RULES,
     rule_copy_invoice_address_match,
 )
 from rules.vendor_rules import (
@@ -33,6 +35,9 @@ class ValidationReport:
     local_row_count: int = 0
     errors: list[dict] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    completion: list[dict] = field(
+        default_factory=list
+    )  # per-sheet fill rates (tracker only)
 
     @property
     def total_rows(self) -> int:
@@ -56,7 +61,9 @@ class ValidationReport:
         return pd.DataFrame(self.errors)
 
 
-def _parse_file(file_bytes: bytes, label: str, report: ValidationReport) -> pd.DataFrame | None:
+def _parse_file(
+    file_bytes: bytes, label: str, report: ValidationReport
+) -> pd.DataFrame | None:
     """Open an Excel file and return its first sheet as a DataFrame."""
     try:
         xls = pd.ExcelFile(BytesIO(file_bytes), engine="openpyxl")
@@ -76,7 +83,9 @@ def _parse_file(file_bytes: bytes, label: str, report: ValidationReport) -> pd.D
         return None
 
 
-def _run_rules(df: pd.DataFrame, rules: list, label: str, report: ValidationReport) -> int:
+def _run_rules(
+    df: pd.DataFrame, rules: list, label: str, report: ValidationReport
+) -> int:
     """Apply a list of rule functions to df; return row count."""
     if df is None or df.empty:
         return 0
@@ -85,7 +94,9 @@ def _run_rules(df: pd.DataFrame, rules: list, label: str, report: ValidationRepo
         try:
             report.errors.extend(rule_fn(df))
         except Exception as exc:
-            report.warnings.append(f"Rule '{rule_fn.__name__}' error in '{label}': {exc}")
+            report.warnings.append(
+                f"Rule '{rule_fn.__name__}' error in '{label}': {exc}"
+            )
     return row_count
 
 
@@ -98,11 +109,15 @@ def validate(
 
     if global_file_bytes is not None:
         df = _parse_file(global_file_bytes, "Global Product Data", report)
-        report.global_row_count = _run_rules(df, ALL_GLOBAL_RULES, "Global Product Data", report)
+        report.global_row_count = _run_rules(
+            df, ALL_GLOBAL_RULES, "Global Product Data", report
+        )
 
     if local_file_bytes is not None:
         df = _parse_file(local_file_bytes, "Local Product Data", report)
-        report.local_row_count = _run_rules(df, ALL_LOCAL_RULES, "Local Product Data", report)
+        report.local_row_count = _run_rules(
+            df, ALL_LOCAL_RULES, "Local Product Data", report
+        )
 
     return report
 
@@ -117,13 +132,13 @@ def validate_customer(files: dict[str, bytes | None]) -> ValidationReport:
     report = ValidationReport()
 
     sheet_rules = {
-        "pt":               (ALL_PT_RULES,         "PT"),
-        "invoice":          (C_INVOICE_RULES,       "Invoice"),
-        "lea_invoice":      (C_LEA_INVOICE_RULES,   "LEA Invoice"),
-        "os":               (C_OS_RULES,            "OS"),
-        "lea_os":           (C_LEA_OS_RULES,        "LEA OS"),
+        "pt": (ALL_PT_RULES, "PT"),
+        "invoice": (C_INVOICE_RULES, "Invoice"),
+        "lea_invoice": (C_LEA_INVOICE_RULES, "LEA Invoice"),
+        "os": (C_OS_RULES, "OS"),
+        "lea_os": (C_LEA_OS_RULES, "LEA OS"),
         "employee_invoice": (ALL_EMP_INVOICE_RULES, "Employee Invoice"),
-        "employee_os":      (ALL_EMP_OS_RULES,      "Employee OS"),
+        "employee_os": (ALL_EMP_OS_RULES, "Employee OS"),
     }
 
     dfs: dict[str, pd.DataFrame | None] = {}
@@ -138,17 +153,21 @@ def validate_customer(files: dict[str, bytes | None]) -> ValidationReport:
 
     # Cross-sheet rule: Employee OS address must match Invoice address
     df_invoice = dfs.get("invoice")
-    df_emp_os  = dfs.get("employee_os")
+    df_emp_os = dfs.get("employee_os")
     if df_invoice is not None and df_emp_os is not None:
         try:
             report.errors.extend(rule_copy_invoice_address_match(df_emp_os, df_invoice))
         except Exception as exc:
-            report.warnings.append(f"Rule 'rule_copy_invoice_address_match' error: {exc}")
+            report.warnings.append(
+                f"Rule 'rule_copy_invoice_address_match' error: {exc}"
+            )
 
     return report
 
 
-def _open_combined(file_bytes: bytes, report: ValidationReport) -> "pd.ExcelFile | None":
+def _open_combined(
+    file_bytes: bytes, report: ValidationReport
+) -> "pd.ExcelFile | None":
     try:
         return pd.ExcelFile(BytesIO(file_bytes), engine="openpyxl")
     except Exception as exc:
@@ -156,9 +175,13 @@ def _open_combined(file_bytes: bytes, report: ValidationReport) -> "pd.ExcelFile
         return None
 
 
-def _parse_sheet(xls: "pd.ExcelFile", sheet_name: str, report: ValidationReport) -> "pd.DataFrame | None":
+def _parse_sheet(
+    xls: "pd.ExcelFile", sheet_name: str, report: ValidationReport
+) -> "pd.DataFrame | None":
     if sheet_name not in xls.sheet_names:
-        report.warnings.append(f"Sheet '{sheet_name}' not found. Available: {xls.sheet_names}")
+        report.warnings.append(
+            f"Sheet '{sheet_name}' not found. Available: {xls.sheet_names}"
+        )
         return None
     try:
         return xls.parse(sheet_name)
@@ -187,10 +210,10 @@ def validate_combined_vendor(file_bytes: bytes) -> ValidationReport:
     if xls is None:
         return report
     for sheet_name, rules in [
-        ("Invoice",     V_INVOICE_RULES),
+        ("Invoice", V_INVOICE_RULES),
         ("LEA Invoice", V_LEA_INVOICE_RULES),
-        ("OS",          V_OS_RULES),
-        ("LEA OS",      V_LEA_OS_RULES),
+        ("OS", V_OS_RULES),
+        ("LEA OS", V_LEA_OS_RULES),
     ]:
         df = _parse_sheet(xls, sheet_name, report)
         report.global_row_count += _run_rules(df, rules, sheet_name, report)
@@ -204,13 +227,13 @@ def validate_combined_customer(file_bytes: bytes) -> ValidationReport:
     if xls is None:
         return report
     sheet_rules = [
-        ("PT",               ALL_PT_RULES),
-        ("Invoice",          C_INVOICE_RULES),
-        ("LEA Invoice",      C_LEA_INVOICE_RULES),
-        ("OS",               C_OS_RULES),
-        ("LEA OS",           C_LEA_OS_RULES),
+        ("PT", ALL_PT_RULES),
+        ("Invoice", C_INVOICE_RULES),
+        ("LEA Invoice", C_LEA_INVOICE_RULES),
+        ("OS", C_OS_RULES),
+        ("LEA OS", C_LEA_OS_RULES),
         ("Employee Invoice", ALL_EMP_INVOICE_RULES),
-        ("Employee OS",      ALL_EMP_OS_RULES),
+        ("Employee OS", ALL_EMP_OS_RULES),
     ]
     dfs: dict[str, pd.DataFrame | None] = {}
     for sheet_name, rules in sheet_rules:
@@ -218,12 +241,14 @@ def validate_combined_customer(file_bytes: bytes) -> ValidationReport:
         dfs[sheet_name] = df
         report.global_row_count += _run_rules(df, rules, sheet_name, report)
     df_invoice = dfs.get("Invoice")
-    df_emp_os  = dfs.get("Employee OS")
+    df_emp_os = dfs.get("Employee OS")
     if df_invoice is not None and df_emp_os is not None:
         try:
             report.errors.extend(rule_copy_invoice_address_match(df_emp_os, df_invoice))
         except Exception as exc:
-            report.warnings.append(f"Rule 'rule_copy_invoice_address_match' error: {exc}")
+            report.warnings.append(
+                f"Rule 'rule_copy_invoice_address_match' error: {exc}"
+            )
     return report
 
 
@@ -237,10 +262,10 @@ def validate_vendor(files: dict[str, bytes | None]) -> ValidationReport:
     """
     report = ValidationReport()
     sheet_rules = {
-        "invoice":     (V_INVOICE_RULES,     "Invoice"),
+        "invoice": (V_INVOICE_RULES, "Invoice"),
         "lea_invoice": (V_LEA_INVOICE_RULES, "LEA Invoice"),
-        "os":          (V_OS_RULES,          "OS"),
-        "lea_os":      (V_LEA_OS_RULES,      "LEA OS"),
+        "os": (V_OS_RULES, "OS"),
+        "lea_os": (V_LEA_OS_RULES, "LEA OS"),
     }
     for key, (rules, label) in sheet_rules.items():
         file_bytes = files.get(key)

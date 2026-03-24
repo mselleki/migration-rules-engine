@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import {
   Upload,
   X,
@@ -23,6 +23,7 @@ import {
   getPaginationRowModel,
   flexRender,
 } from "@tanstack/react-table";
+import { getPhase, PHASE_STYLE } from "../data/lovPhases.js";
 import API from "../api.js";
 
 const DOMAINS = ["Products", "Vendors", "Customers"];
@@ -233,6 +234,217 @@ function ErrorTable({ errors }) {
   );
 }
 
+// --- Completion Panel ---
+
+const PHASE_ORDER = ["MVP", "Phase 1"];
+const PHASE_BAR_COLOR = {
+  MVP: "bg-amber-400",
+  "Phase 1": "bg-blue-400",
+  Unclassified: "bg-slate-300 dark:bg-slate-600",
+};
+
+function colRateColor(rate) {
+  if (rate >= 0.95) return "bg-emerald-500";
+  if (rate >= 0.75) return "bg-amber-400";
+  if (rate >= 0.5) return "bg-orange-400";
+  return "bg-red-500";
+}
+
+function CompletionPanel({ completion }) {
+  const [selectedSheet, setSelectedSheet] = useState(null);
+  const [showAll, setShowAll] = useState(false);
+
+  const stats = useMemo(() => {
+    if (!completion?.length) return null;
+
+    const allCols = completion.flatMap((s) =>
+      s.columns.map((c) => ({ ...c, totalRows: s.total_rows })),
+    );
+
+    const totalCells = allCols.reduce((sum, c) => sum + c.totalRows, 0);
+    const filledCells = allCols.reduce((sum, c) => sum + c.filled, 0);
+    const overallRate = totalCells > 0 ? filledCells / totalCells : 0;
+
+    const phaseMap = {};
+    for (const col of allCols) {
+      const key = getPhase(col.attribute) ?? "Unclassified";
+      if (!phaseMap[key]) phaseMap[key] = { filled: 0, total: 0 };
+      phaseMap[key].filled += col.filled;
+      phaseMap[key].total += col.totalRows;
+    }
+
+    return { overallRate, totalCells, filledCells, phaseMap };
+  }, [completion]);
+
+  if (!stats) return null;
+
+  const currentSheet =
+    selectedSheet && completion.find((s) => s.sheet === selectedSheet)
+      ? selectedSheet
+      : completion[0]?.sheet;
+
+  const sheetData = completion.find((s) => s.sheet === currentSheet);
+  const cols = sheetData?.columns ?? [];
+  const incomplete = cols
+    .filter((c) => c.rate < 1)
+    .sort((a, b) => a.rate - b.rate);
+  const displayCols = showAll
+    ? [...cols].sort((a, b) => a.rate - b.rate)
+    : incomplete.slice(0, 25);
+
+  const phaseRows = [
+    ...PHASE_ORDER.filter((p) => stats.phaseMap[p]),
+    ...(stats.phaseMap["Unclassified"] ? ["Unclassified"] : []),
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+            Completion Analysis
+          </span>
+          <span className="text-lg font-bold text-brand-500">
+            {Math.round(stats.overallRate * 100)}%
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Overall bar */}
+        <div>
+          <div className="flex justify-between text-xs text-slate-400 mb-1.5">
+            <span>Overall fill rate</span>
+            <span className="tabular-nums">
+              {stats.filledCells.toLocaleString()} /{" "}
+              {stats.totalCells.toLocaleString()} cells
+            </span>
+          </div>
+          <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-brand-500 rounded-full transition-all"
+              style={{ width: `${stats.overallRate * 100}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Phase breakdown */}
+        <div className="space-y-2">
+          {phaseRows.map((phase) => {
+            const { filled, total } = stats.phaseMap[phase];
+            const rate = total > 0 ? filled / total : 0;
+            const pStyle = PHASE_STYLE[phase];
+            const barColor = PHASE_BAR_COLOR[phase];
+            return (
+              <div key={phase} className="flex items-center gap-3">
+                <div className="w-10 flex-shrink-0">
+                  {pStyle ? (
+                    <span
+                      className={`text-[9px] font-bold px-1 py-px rounded ${pStyle.className}`}
+                    >
+                      {pStyle.label}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-slate-400">—</span>
+                  )}
+                </div>
+                <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full ${barColor} rounded-full transition-all`}
+                    style={{ width: `${rate * 100}%` }}
+                  />
+                </div>
+                <span className="text-xs tabular-nums text-slate-500 w-8 text-right">
+                  {Math.round(rate * 100)}%
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Divider */}
+        <div className="border-t border-slate-100 dark:border-slate-800" />
+
+        {/* Sheet tabs */}
+        {completion.length > 1 && (
+          <div className="flex gap-1">
+            {completion.map((s) => (
+              <button
+                key={s.sheet}
+                onClick={() => {
+                  setSelectedSheet(s.sheet);
+                  setShowAll(false);
+                }}
+                className={`px-2.5 py-1 text-xs rounded-md transition-colors ${
+                  currentSheet === s.sheet
+                    ? "bg-brand-500 text-white"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                }`}
+              >
+                {s.sheet}
+                <span className="ml-1.5 opacity-60 tabular-nums">
+                  {s.total_rows}r
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Column breakdown */}
+        {displayCols.length === 0 ? (
+          <div className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400">
+            <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" />
+            All columns are 100% complete.
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {displayCols.map((col) => {
+              const phase = getPhase(col.attribute);
+              const pStyle = phase ? PHASE_STYLE[phase] : null;
+              return (
+                <div key={col.attribute} className="flex items-center gap-2">
+                  <span className="text-xs text-slate-600 dark:text-slate-300 truncate w-44 flex-shrink-0">
+                    {col.attribute}
+                  </span>
+                  <div className="w-8 flex-shrink-0 flex justify-start">
+                    {pStyle && (
+                      <span
+                        className={`text-[9px] font-bold px-1 py-px rounded ${pStyle.className}`}
+                      >
+                        {pStyle.label}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full ${colRateColor(col.rate)} rounded-full transition-all`}
+                      style={{ width: `${col.rate * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] tabular-nums text-slate-400 w-24 flex-shrink-0 text-right">
+                    {col.filled}/{col.totalRows} · {Math.round(col.rate * 100)}%
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Show all / incomplete toggle */}
+        {(cols.length > 25 || incomplete.length !== cols.length) && (
+          <button
+            onClick={() => setShowAll((v) => !v)}
+            className="text-xs text-brand-500 hover:underline"
+          >
+            {showAll
+              ? `Show incomplete only (${incomplete.length})`
+              : `Show all ${cols.length} columns`}
+          </button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // --- Main ---
 
 export default function TrackerValidator() {
@@ -404,6 +616,11 @@ export default function TrackerValidator() {
                     </div>
                   ))}
                 </div>
+
+                {/* Completion analysis */}
+                {report.completion?.length > 0 && (
+                  <CompletionPanel completion={report.completion} />
+                )}
 
                 {/* Errors by rule */}
                 {Object.keys(errorsByRule).length > 0 && (
