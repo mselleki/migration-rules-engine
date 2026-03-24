@@ -32,6 +32,12 @@ const MVP_ATTRS = new Set([
   "Country",
   "Currency Code",
   "Payment Terms",
+  // ── Customer — Invoice ──
+  "Customer Type",
+  "Is Customer a Registered Company?",
+  "CRN",
+  // ── Customer — Employee Invoice ──
+  "Employee Number",
 ]);
 
 const PHASE1_ATTRS = new Set([
@@ -51,12 +57,33 @@ const PHASE1_ATTRS = new Set([
   // ── Vendor — OrderingShipping ──
   "Delivery Terms",
   "Mode of Delivery",
+  "Mode Of Delivery", // Customer variant capitalisation
   "Site",
   "Warehouse",
   "Buyer Group",
   "Nominated Vendor",
   "Vendor Managed Inventory (VMI)",
   "Facility Registration Number",
+  // ── Customer — Invoice ──
+  "Limited Address",
+  "Customer Status",
+  "Reference Code",
+  "Customer Own Account Number",
+  "Known As", // Customer variant (Vendor uses "Known As Name")
+  "Seasonal",
+  "Customer Group",
+  "Sales Group (Line Of Business)",
+  "Method Of Payment", // Customer variant capitalisation (Vendor: "Method of Payment")
+  "Company Chain",
+  "Customer Master - Legal Entity Level",
+  "Customer Master - Europe",
+  "Division",
+  // ── Customer — OrderingShipping + Employee ──
+  "Segment",
+  "Subsegment",
+  "Sales District",
+  "District Sales Manager",
+  "Area Sales Manager",
   // ── Products ──
   "Case Length (cm)",
   "Case Width (cm)",
