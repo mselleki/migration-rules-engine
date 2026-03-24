@@ -19,10 +19,13 @@ import {
   Moon,
   Keyboard,
   Info,
+  LogOut,
   X,
 } from "lucide-react";
 import { HistoryProvider } from "./context/HistoryContext.jsx";
 import { ThemeProvider, useTheme } from "./components/ThemeProvider.jsx";
+import { AuthProvider, useAuth } from "./context/AuthContext.jsx";
+import LoginScreen from "./components/LoginScreen.jsx";
 import LovSearchModal from "./components/LovSearchModal.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Validator from "./pages/Validator.jsx";
@@ -202,6 +205,8 @@ function PagesGuideModal({ onClose }) {
 
 // ─── Global keyboard shortcuts ───────────────────────────────────────────────
 
+const MARKET_ALLOWED = new Set(["/tracker", "/lov-explorer"]);
+
 function useKeyboardShortcuts(setShowLov, setShowHelp) {
   const navigate = useNavigate();
   const { toggle: toggleTheme } = useTheme();
@@ -333,7 +338,22 @@ function AppInner() {
   const [showLov, setShowLov] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const { role, logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   useKeyboardShortcuts(setShowLov, setShowHelp);
+
+  // Redirect Market users away from DET-only routes
+  useEffect(() => {
+    if (role === "market" && !MARKET_ALLOWED.has(location.pathname)) {
+      navigate("/tracker", { replace: true });
+    }
+  }, [role, location.pathname, navigate]);
+
+  if (!role) return <LoginScreen />;
+
+  const visibleNav =
+    role === "market" ? NAV.filter(({ to }) => MARKET_ALLOWED.has(to)) : NAV;
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
@@ -359,7 +379,7 @@ function AppInner() {
             role="navigation"
             aria-label="Main navigation"
           >
-            {NAV.map(({ to, label, icon: Icon }) => (
+            {visibleNav.map(({ to, label, icon: Icon }) => (
               <NavItem key={to} to={to} label={label} Icon={Icon} />
             ))}
           </nav>
@@ -394,6 +414,14 @@ function AppInner() {
               <Keyboard className="h-4 w-4" />
             </button>
             <ThemeToggle />
+            <button
+              onClick={logout}
+              aria-label="Log out"
+              title={`Log out (${role === "det" ? "Data Enablement Team" : "Market"})`}
+              className="h-8 w-8 flex items-center justify-center rounded text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
         </div>
       </header>
@@ -410,11 +438,13 @@ function AppInner() {
 export default function App() {
   return (
     <ThemeProvider>
-      <HistoryProvider>
-        <BrowserRouter>
-          <AppInner />
-        </BrowserRouter>
-      </HistoryProvider>
+      <AuthProvider>
+        <HistoryProvider>
+          <BrowserRouter>
+            <AppInner />
+          </BrowserRouter>
+        </HistoryProvider>
+      </AuthProvider>
     </ThemeProvider>
   );
 }
