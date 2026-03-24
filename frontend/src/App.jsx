@@ -129,7 +129,7 @@ function useKeyboardShortcuts(setShowLov, setShowHelp) {
         tag === "SELECT" ||
         document.activeElement?.isContentEditable;
 
-      // Ctrl+K / ⌘K — always intercept (open LOV search modal)
+      // Ctrl+K / ⌘K - always intercept (open LOV search modal)
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault();
         setShowLov((v) => !v);
@@ -251,12 +251,15 @@ function AppInner() {
       <header className="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
         <div className="px-8 w-full flex items-center gap-6 h-16">
           {/* Wordmark */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <img src="/sysco-logo.png" alt="Sysco" className="h-6 w-auto" />
+            <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
             <div className="h-7 w-7 bg-brand-500 rounded flex items-center justify-center">
               <GitMerge className="h-4 w-4 text-white" />
             </div>
             <span className="text-base font-semibold text-slate-800 dark:text-slate-100 tracking-tight">
-              Sysco <span className="text-brand-500">MRE</span>
+              Data Governance Tool -{" "}
+              <span className="text-brand-500">DGT!</span>
             </span>
           </div>
 
