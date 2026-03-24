@@ -47,8 +47,6 @@
 /* ── Base ──────────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
 
-html { font-size: 14px; }
-
 body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
