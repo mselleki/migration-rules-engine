@@ -5,7 +5,7 @@ import { Card, CardHeader } from "../components/ui/card.jsx";
 import { Badge } from "../components/ui/badge.jsx";
 import { Skeleton } from "../components/ui/skeleton.jsx";
 
-const API = "/api";
+import API from "../api.js";
 
 function useDebounce(value, delay = 300) {
   const [debounced, setDebounced] = useState(value);

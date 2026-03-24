@@ -140,13 +140,13 @@ function NavItem({ to, label, Icon }) {
       end={to === "/"}
       aria-label={label}
       className={({ isActive }) =>
-        "flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors " +
+        "flex items-center gap-2 px-4 py-2 text-base font-medium border-b-2 transition-colors " +
         (isActive
           ? "border-brand-500 text-brand-500 dark:text-brand-400"
           : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200")
       }
     >
-      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+      <Icon className="h-4 w-4" aria-hidden="true" />
       {label}
     </NavLink>
   );
@@ -163,15 +163,17 @@ function AnimatedRoutes() {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.12 }}
-        className="flex-1 max-w-screen-2xl mx-auto w-full px-8 py-6"
+        className="flex-1 w-full"
       >
-        <Routes location={location}>
-          <Route path="/"             element={<Dashboard />}   />
-          <Route path="/validator"    element={<Validator />}   />
-          <Route path="/lov-explorer" element={<LovExplorer />} />
-          <Route path="/migrations"   element={<Migrations />}  />
-          <Route path="/diff"         element={<DiffViewer />}  />
-        </Routes>
+        <div className="px-8 py-6">
+          <Routes location={location}>
+            <Route path="/"             element={<Dashboard />}   />
+            <Route path="/validator"    element={<Validator />}   />
+            <Route path="/lov-explorer" element={<LovExplorer />} />
+            <Route path="/migrations"   element={<Migrations />}  />
+            <Route path="/diff"         element={<DiffViewer />}  />
+          </Routes>
+        </div>
       </motion.main>
     </AnimatePresence>
   );
@@ -187,20 +189,20 @@ function AppInner() {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       <header className="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
-        <div className="max-w-screen-2xl mx-auto px-8 flex items-center gap-6 h-12">
+        <div className="px-8 w-full flex items-center gap-6 h-16">
           {/* Wordmark */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            <div className="h-5 w-5 bg-brand-500 rounded flex items-center justify-center">
-              <GitMerge className="h-3 w-3 text-white" />
+            <div className="h-7 w-7 bg-brand-500 rounded flex items-center justify-center">
+              <GitMerge className="h-4 w-4 text-white" />
             </div>
-            <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 tracking-tight">
+            <span className="text-base font-semibold text-slate-800 dark:text-slate-100 tracking-tight">
               Sysco <span className="text-brand-500">MRE</span>
             </span>
           </div>
 
           <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
 
-          <nav className="flex items-stretch h-12 gap-0 -mb-px" role="navigation" aria-label="Main navigation">
+          <nav className="flex items-stretch h-16 gap-0 -mb-px" role="navigation" aria-label="Main navigation">
             {NAV.map(({ to, label, icon: Icon }) => (
               <NavItem key={to} to={to} label={label} Icon={Icon} />
             ))}

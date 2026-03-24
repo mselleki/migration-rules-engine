@@ -10,7 +10,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
-from validator import validate, validate_customer, validate_vendor
+from validator import validate, validate_customer, validate_vendor, validate_combined_products, validate_combined_vendor, validate_combined_customer
 from utils.lov_extractor import get_hardcoded_lovs, extract_attribute_groups, extract_brands, extract_buyer_groups, extract_commodity_codes
 from diff import run_diff, DIFF_CONFIG
 
@@ -76,15 +76,17 @@ async def _read(f: UploadFile | None) -> bytes | None:
 async def validate_files(
     domain: str = Form("Products"),
     legal_entity: str = Form(""),
-    # Products
+    # Combined-file mode (single XLSX with multiple sheets)
+    combined_file:     UploadFile | None = File(None),
+    # Products (individual mode)
     global_file:       UploadFile | None = File(None),
     local_file:        UploadFile | None = File(None),
-    # Vendors & Customers (shared field names)
+    # Vendors & Customers (shared field names, individual mode)
     invoice:           UploadFile | None = File(None),
     lea_invoice:       UploadFile | None = File(None),
     os:                UploadFile | None = File(None),
     lea_os:            UploadFile | None = File(None),
-    # Customers only
+    # Customers only (individual mode)
     pt:                UploadFile | None = File(None),
     employee_invoice:  UploadFile | None = File(None),
     employee_os:       UploadFile | None = File(None),
@@ -92,34 +94,43 @@ async def validate_files(
     """Validate migration files for Products, Vendors, or Customers domain."""
 
     if domain == "Products":
-        if global_file is None and local_file is None:
-            raise HTTPException(status_code=400, detail="Upload at least one file.")
-        report = validate(await _read(global_file), await _read(local_file))
+        if combined_file:
+            report = validate_combined_products(await _read(combined_file))
+        else:
+            if global_file is None and local_file is None:
+                raise HTTPException(status_code=400, detail="Upload at least one file.")
+            report = validate(await _read(global_file), await _read(local_file))
 
     elif domain == "Vendors":
-        files = {
-            "invoice":     await _read(invoice),
-            "lea_invoice": await _read(lea_invoice),
-            "os":          await _read(os),
-            "lea_os":      await _read(lea_os),
-        }
-        if not any(files.values()):
-            raise HTTPException(status_code=400, detail="Upload at least one file.")
-        report = validate_vendor(files)
+        if combined_file:
+            report = validate_combined_vendor(await _read(combined_file))
+        else:
+            files = {
+                "invoice":     await _read(invoice),
+                "lea_invoice": await _read(lea_invoice),
+                "os":          await _read(os),
+                "lea_os":      await _read(lea_os),
+            }
+            if not any(files.values()):
+                raise HTTPException(status_code=400, detail="Upload at least one file.")
+            report = validate_vendor(files)
 
     elif domain == "Customers":
-        files = {
-            "pt":               await _read(pt),
-            "invoice":          await _read(invoice),
-            "lea_invoice":      await _read(lea_invoice),
-            "os":               await _read(os),
-            "lea_os":           await _read(lea_os),
-            "employee_invoice": await _read(employee_invoice),
-            "employee_os":      await _read(employee_os),
-        }
-        if not any(files.values()):
-            raise HTTPException(status_code=400, detail="Upload at least one file.")
-        report = validate_customer(files)
+        if combined_file:
+            report = validate_combined_customer(await _read(combined_file))
+        else:
+            files = {
+                "pt":               await _read(pt),
+                "invoice":          await _read(invoice),
+                "lea_invoice":      await _read(lea_invoice),
+                "os":               await _read(os),
+                "lea_os":           await _read(lea_os),
+                "employee_invoice": await _read(employee_invoice),
+                "employee_os":      await _read(employee_os),
+            }
+            if not any(files.values()):
+                raise HTTPException(status_code=400, detail="Upload at least one file.")
+            report = validate_customer(files)
 
     else:
         raise HTTPException(status_code=400, detail=f"Unknown domain '{domain}'.")
@@ -141,6 +152,7 @@ async def validate_files(
 async def export_csv(
     domain: str = Form("Products"),
     legal_entity: str = Form(""),
+    combined_file:     UploadFile | None = File(None),
     global_file:       UploadFile | None = File(None),
     local_file:        UploadFile | None = File(None),
     invoice:           UploadFile | None = File(None),
@@ -153,11 +165,11 @@ async def export_csv(
 ):
     """Run validation and return errors as a downloadable CSV."""
     if domain == "Products":
-        report = validate(await _read(global_file), await _read(local_file))
+        report = validate_combined_products(await _read(combined_file)) if combined_file else validate(await _read(global_file), await _read(local_file))
     elif domain == "Vendors":
-        report = validate_vendor({"invoice": await _read(invoice), "lea_invoice": await _read(lea_invoice), "os": await _read(os), "lea_os": await _read(lea_os)})
+        report = validate_combined_vendor(await _read(combined_file)) if combined_file else validate_vendor({"invoice": await _read(invoice), "lea_invoice": await _read(lea_invoice), "os": await _read(os), "lea_os": await _read(lea_os)})
     elif domain == "Customers":
-        report = validate_customer({"pt": await _read(pt), "invoice": await _read(invoice), "lea_invoice": await _read(lea_invoice), "os": await _read(os), "lea_os": await _read(lea_os), "employee_invoice": await _read(employee_invoice), "employee_os": await _read(employee_os)})
+        report = validate_combined_customer(await _read(combined_file)) if combined_file else validate_customer({"pt": await _read(pt), "invoice": await _read(invoice), "lea_invoice": await _read(lea_invoice), "os": await _read(os), "lea_os": await _read(lea_os), "employee_invoice": await _read(employee_invoice), "employee_os": await _read(employee_os)})
     else:
         raise HTTPException(status_code=400, detail=f"Unknown domain '{domain}'.")
 

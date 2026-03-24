@@ -148,6 +148,85 @@ def validate_customer(files: dict[str, bytes | None]) -> ValidationReport:
     return report
 
 
+def _open_combined(file_bytes: bytes, report: ValidationReport) -> "pd.ExcelFile | None":
+    try:
+        return pd.ExcelFile(BytesIO(file_bytes), engine="openpyxl")
+    except Exception as exc:
+        report.warnings.append(f"Failed to open combined file: {exc}")
+        return None
+
+
+def _parse_sheet(xls: "pd.ExcelFile", sheet_name: str, report: ValidationReport) -> "pd.DataFrame | None":
+    if sheet_name not in xls.sheet_names:
+        report.warnings.append(f"Sheet '{sheet_name}' not found. Available: {xls.sheet_names}")
+        return None
+    try:
+        return xls.parse(sheet_name)
+    except Exception as exc:
+        report.warnings.append(f"Could not read sheet '{sheet_name}': {exc}")
+        return None
+
+
+def validate_combined_products(file_bytes: bytes) -> ValidationReport:
+    """Validate Products from a single XLSX with 'Global' and 'Local' sheets."""
+    report = ValidationReport()
+    xls = _open_combined(file_bytes, report)
+    if xls is None:
+        return report
+    df = _parse_sheet(xls, "Global", report)
+    report.global_row_count = _run_rules(df, ALL_GLOBAL_RULES, "Global", report)
+    df = _parse_sheet(xls, "Local", report)
+    report.local_row_count = _run_rules(df, ALL_LOCAL_RULES, "Local", report)
+    return report
+
+
+def validate_combined_vendor(file_bytes: bytes) -> ValidationReport:
+    """Validate Vendors from a single XLSX with Invoice/LEA Invoice/OS/LEA OS sheets."""
+    report = ValidationReport()
+    xls = _open_combined(file_bytes, report)
+    if xls is None:
+        return report
+    for sheet_name, rules in [
+        ("Invoice",     V_INVOICE_RULES),
+        ("LEA Invoice", V_LEA_INVOICE_RULES),
+        ("OS",          V_OS_RULES),
+        ("LEA OS",      V_LEA_OS_RULES),
+    ]:
+        df = _parse_sheet(xls, sheet_name, report)
+        report.global_row_count += _run_rules(df, rules, sheet_name, report)
+    return report
+
+
+def validate_combined_customer(file_bytes: bytes) -> ValidationReport:
+    """Validate Customers from a single XLSX with PT/Invoice/LEA Invoice/OS/LEA OS/Employee Invoice/Employee OS sheets."""
+    report = ValidationReport()
+    xls = _open_combined(file_bytes, report)
+    if xls is None:
+        return report
+    sheet_rules = [
+        ("PT",               ALL_PT_RULES),
+        ("Invoice",          C_INVOICE_RULES),
+        ("LEA Invoice",      C_LEA_INVOICE_RULES),
+        ("OS",               C_OS_RULES),
+        ("LEA OS",           C_LEA_OS_RULES),
+        ("Employee Invoice", ALL_EMP_INVOICE_RULES),
+        ("Employee OS",      ALL_EMP_OS_RULES),
+    ]
+    dfs: dict[str, pd.DataFrame | None] = {}
+    for sheet_name, rules in sheet_rules:
+        df = _parse_sheet(xls, sheet_name, report)
+        dfs[sheet_name] = df
+        report.global_row_count += _run_rules(df, rules, sheet_name, report)
+    df_invoice = dfs.get("Invoice")
+    df_emp_os  = dfs.get("Employee OS")
+    if df_invoice is not None and df_emp_os is not None:
+        try:
+            report.errors.extend(rule_copy_invoice_address_match(df_emp_os, df_invoice))
+        except Exception as exc:
+            report.warnings.append(f"Rule 'rule_copy_invoice_address_match' error: {exc}")
+    return report
+
+
 def validate_vendor(files: dict[str, bytes | None]) -> ValidationReport:
     """
     Validate Vendors domain.

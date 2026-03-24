@@ -14,8 +14,14 @@ import {
   flexRender,
 } from "@tanstack/react-table";
 
-const API = "/api";
+import API from "../api.js";
 const DOMAINS = ["Products", "Vendors", "Customers"];
+
+const DOMAIN_COMBINED_TABS = {
+  Products:  ["Global", "Local"],
+  Vendors:   ["Invoice", "LEA Invoice", "OS", "LEA OS"],
+  Customers: ["PT", "Invoice", "LEA Invoice", "OS", "LEA OS", "Employee Invoice", "Employee OS"],
+};
 
 const DOMAIN_FILES = {
   Products: [
@@ -188,31 +194,40 @@ export default function Validator() {
   const location = useLocation();
   const { runs, addRun } = useHistory();
 
-  const [domain, setDomain]   = useState(location.state?.domain ?? "Products");
-  const [files, setFiles]     = useState({});
-  const [loading, setLoading] = useState(false);
-  const [report, setReport]   = useState(null);
-  const [error, setError]     = useState(null);
+  const [domain, setDomain]           = useState(location.state?.domain ?? "Products");
+  const [mode, setMode]               = useState("individual"); // "individual" | "combined"
+  const [files, setFiles]             = useState({});
+  const [combinedFile, setCombinedFile] = useState(null);
+  const [loading, setLoading]         = useState(false);
+  const [report, setReport]           = useState(null);
+  const [error, setError]             = useState(null);
 
-  // Reset files whenever domain changes
-  const handleDomainChange = useCallback((d) => { setDomain(d); setFiles({}); setReport(null); setError(null); }, []);
+  const handleDomainChange = useCallback((d) => {
+    setDomain(d); setFiles({}); setCombinedFile(null); setReport(null); setError(null);
+  }, []);
+
+  const handleModeChange = useCallback((m) => {
+    setMode(m); setFiles({}); setCombinedFile(null); setReport(null); setError(null);
+  }, []);
 
   const setFile = useCallback((key, file) => setFiles(prev => ({ ...prev, [key]: file })), []);
 
-  const buildFormData = (d, f) => {
+  const buildFormData = () => {
     const fd = new FormData();
-    fd.append("domain", d);
-    DOMAIN_FILES[d].forEach(({ key }) => { if (f[key]) fd.append(key, f[key]); });
+    fd.append("domain", domain);
+    if (mode === "combined") {
+      if (combinedFile) fd.append("combined_file", combinedFile);
+    } else {
+      DOMAIN_FILES[domain].forEach(({ key }) => { if (files[key]) fd.append(key, files[key]); });
+    }
     return fd;
   };
 
   async function handleSubmit(e) {
     e.preventDefault();
-    const anyFile = DOMAIN_FILES[domain].some(({ key }) => files[key]);
-    if (!anyFile) return;
     setLoading(true); setError(null); setReport(null);
     try {
-      const res = await fetch(`${API}/validate`, { method: "POST", body: buildFormData(domain, files) });
+      const res = await fetch(`${API}/validate`, { method: "POST", body: buildFormData() });
       if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.detail || `HTTP ${res.status}`); }
       const data = await res.json();
       setReport(data);
@@ -225,7 +240,7 @@ export default function Validator() {
   }
 
   async function handleExportCsv() {
-    const res = await fetch(`${API}/validate/export-csv`, { method: "POST", body: buildFormData(domain, files) });
+    const res = await fetch(`${API}/validate/export-csv`, { method: "POST", body: buildFormData() });
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url;
@@ -233,7 +248,9 @@ export default function Validator() {
     a.click(); URL.revokeObjectURL(url);
   }
 
-  const canSubmit = !loading && DOMAIN_FILES[domain].some(({ key }) => files[key]);
+  const canSubmit = !loading && (
+    mode === "combined" ? !!combinedFile : DOMAIN_FILES[domain].some(({ key }) => files[key])
+  );
 
   return (
     <div className="space-y-5">
@@ -262,12 +279,51 @@ export default function Validator() {
                 </Select>
               </div>
 
+              {/* Mode toggle */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Mode</label>
+                <div className="flex rounded-md border border-slate-200 dark:border-slate-700 overflow-hidden text-sm">
+                  {["individual", "combined"].map(m => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => handleModeChange(m)}
+                      className={
+                        "flex-1 py-1.5 font-medium transition-colors " +
+                        (mode === m
+                          ? "bg-brand-500 text-white"
+                          : "bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800")
+                      }
+                    >
+                      {m === "individual" ? "Individual files" : "Combined file"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* File zones */}
               <div className="space-y-2">
                 <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Files</label>
-                {DOMAIN_FILES[domain].map(({ key, label }) => (
-                  <FileDropZone key={key} label={`${label} (.xlsx)`} file={files[key] ?? null} onFile={f => setFile(key, f)} />
-                ))}
+                {mode === "combined" ? (
+                  <div className="space-y-2">
+                    <FileDropZone
+                      label="Combined file (.xlsx)"
+                      file={combinedFile}
+                      onFile={setCombinedFile}
+                    />
+                    <div className="flex flex-wrap gap-1 px-1">
+                      {DOMAIN_COMBINED_TABS[domain].map(tab => (
+                        <span key={tab} className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                          {tab}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  DOMAIN_FILES[domain].map(({ key, label }) => (
+                    <FileDropZone key={key} label={`${label} (.xlsx)`} file={files[key] ?? null} onFile={f => setFile(key, f)} />
+                  ))
+                )}
               </div>
 
               <Button type="submit" disabled={!canSubmit} className="w-full" size="md">

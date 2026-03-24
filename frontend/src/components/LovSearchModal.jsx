@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { Search, X, ChevronRight, ArrowLeft } from "lucide-react";
 
-const API = "/api";
+import API from "../api.js";
 
 export default function LovSearchModal({ onClose }) {
   const [attributes, setAttributes] = useState([]);
