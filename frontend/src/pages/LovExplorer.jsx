@@ -4,6 +4,7 @@ import { Search, X, Copy, CheckCheck, Plus, Trash2, Clock } from "lucide-react";
 import { Badge } from "../components/ui/badge.jsx";
 import { Skeleton } from "../components/ui/skeleton.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
+import { getPhase, PHASE_STYLE } from "../data/lovPhases.js";
 import API from "../api.js";
 
 function useDebounce(value, delay = 300) {
@@ -542,9 +543,23 @@ export default function LovExplorer() {
                     <span className="text-xs font-medium text-slate-700 dark:text-slate-200 truncate">
                       {attribute}
                     </span>
-                    <span className="text-[10px] text-slate-400 flex-shrink-0">
-                      {count}
-                    </span>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {(() => {
+                        const phase = getPhase(attribute);
+                        const s = PHASE_STYLE[phase];
+                        return (
+                          <span
+                            title={phase}
+                            className={`text-[9px] font-bold px-1 py-px rounded ${s.className}`}
+                          >
+                            {s.label}
+                          </span>
+                        );
+                      })()}
+                      <span className="text-[10px] text-slate-400">
+                        {count}
+                      </span>
+                    </div>
                   </div>
                   {examples.length > 0 && (
                     <p className="text-[10px] text-slate-400 mt-0.5 truncate">
