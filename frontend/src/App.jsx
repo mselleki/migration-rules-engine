@@ -338,7 +338,7 @@ function AppInner() {
   const [showLov, setShowLov] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
-  const { role, logout } = useAuth();
+  const { role, name, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   useKeyboardShortcuts(setShowLov, setShowHelp);
@@ -417,7 +417,7 @@ function AppInner() {
             <button
               onClick={logout}
               aria-label="Log out"
-              title={`Log out (${role === "det" ? "Data Enablement Team" : "Market"})`}
+              title={`Log out (${role === "det" ? `DET - ${name}` : "Market"})`}
               className="h-8 w-8 flex items-center justify-center rounded text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
             >
               <LogOut className="h-4 w-4" />

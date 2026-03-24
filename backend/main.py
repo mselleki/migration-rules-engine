@@ -27,6 +27,14 @@ from utils.lov_extractor import (
     extract_commodity_codes,
 )
 from diff import run_diff, DIFF_CONFIG
+from lov_store import (
+    init_db,
+    add_custom_lov,
+    delete_custom_lov,
+    get_custom_lovs,
+    get_history as get_lov_history,
+)
+from pydantic import BaseModel
 
 # ---------------------------------------------------------------------------
 # App setup
@@ -49,17 +57,19 @@ app.add_middleware(
 REFERENCE_DIR = Path(__file__).resolve().parent.parent / "reference"
 OUTPUT_DIR = Path(__file__).resolve().parent.parent / "output"
 
+init_db()
+
 # ---------------------------------------------------------------------------
-# LOV cache — loaded once at startup
+# LOV cache — reference data loaded once at startup
 # ---------------------------------------------------------------------------
 
-_LOV_DF = None
+_REF_LOV_DF = None
 
 
-def _get_lovs_df():
-    global _LOV_DF
-    if _LOV_DF is not None:
-        return _LOV_DF
+def _get_ref_lovs_df():
+    global _REF_LOV_DF
+    if _REF_LOV_DF is not None:
+        return _REF_LOV_DF
 
     import pandas as pd
 
@@ -75,8 +85,28 @@ def _get_lovs_df():
         if p.exists():
             dfs.append(fn(str(p)))
 
-    _LOV_DF = pd.concat(dfs, ignore_index=True)
-    return _LOV_DF
+    _REF_LOV_DF = pd.concat(dfs, ignore_index=True)
+    return _REF_LOV_DF
+
+
+def _get_lovs_df():
+    """Merge reference LOVs (cached) with custom LOVs (always fresh)."""
+    import pandas as pd
+
+    ref = _get_ref_lovs_df()[["attribute", "key", "description"]].copy()
+    ref["source"] = "reference"
+    ref["id"] = ""
+    ref["added_by"] = ""
+
+    custom = get_custom_lovs()
+    if not custom:
+        return ref
+
+    custom_df = pd.DataFrame(custom)[
+        ["id", "attribute", "key", "description", "added_by"]
+    ].copy()
+    custom_df["source"] = "custom"
+    return pd.concat([ref, custom_df], ignore_index=True)
 
 
 # ---------------------------------------------------------------------------
@@ -282,6 +312,44 @@ def get_lov_preview():
         )
     result.sort(key=lambda x: x["attribute"])
     return result
+
+
+# ---------------------------------------------------------------------------
+# Custom LOV endpoints (DET write access)
+# ---------------------------------------------------------------------------
+
+
+class CustomLovIn(BaseModel):
+    attribute: str
+    key: str
+    description: str = ""
+    user: str
+
+
+@app.get("/lovs/custom")
+def list_custom_lovs():
+    return get_custom_lovs()
+
+
+@app.post("/lovs/custom", status_code=201)
+def create_custom_lov(body: CustomLovIn):
+    if not body.attribute.strip() or not body.key.strip() or not body.user.strip():
+        raise HTTPException(400, "attribute, key, and user are required")
+    return add_custom_lov(body.attribute, body.key, body.description, body.user)
+
+
+@app.delete("/lovs/custom/{entry_id}")
+def remove_custom_lov(entry_id: str, user: str):
+    if not user.strip():
+        raise HTTPException(400, "user is required")
+    if not delete_custom_lov(entry_id, user):
+        raise HTTPException(404, "Entry not found")
+    return {"ok": True}
+
+
+@app.get("/lovs/history")
+def list_lov_history(limit: int = 200):
+    return get_lov_history(limit)
 
 
 # ---------------------------------------------------------------------------

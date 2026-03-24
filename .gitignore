@@ -23,6 +23,9 @@ input/Customer/*.xlsx
 output/*.csv
 output/*.xlsx
 
+# SQLite custom LOV database (use a Railway Volume for production persistence)
+data/
+
 # OS
 .DS_Store
 Thumbs.db

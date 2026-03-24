@@ -1,23 +1,40 @@
 import { createContext, useContext, useState } from "react";
 
 const AuthContext = createContext(null);
-const STORAGE_KEY = "dgt_role";
+const STORAGE_KEY = "dgt_session";
+
+function readSession() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
 
 export function AuthProvider({ children }) {
-  const [role, setRole] = useState(() => localStorage.getItem(STORAGE_KEY));
+  const [session, setSession] = useState(readSession);
 
-  const login = (newRole) => {
-    localStorage.setItem(STORAGE_KEY, newRole);
-    setRole(newRole);
+  const login = (role, name = null) => {
+    const s = { role, name };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+    setSession(s);
   };
 
   const logout = () => {
     localStorage.removeItem(STORAGE_KEY);
-    setRole(null);
+    setSession(null);
   };
 
   return (
-    <AuthContext.Provider value={{ role, login, logout }}>
+    <AuthContext.Provider
+      value={{
+        role: session?.role ?? null,
+        name: session?.name ?? null,
+        login,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
