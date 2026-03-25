@@ -14,6 +14,7 @@ import {
   List,
   GitMerge,
   GitCompare,
+  Scale,
   ClipboardCheck,
   ChevronDown,
   Sun,
@@ -61,16 +62,16 @@ const NAV_MIGRATIONS_MENU = {
   icon: GitMerge,
   items: [
     {
+      to: "/migrations",
+      label: "Rules",
+      icon: Scale,
+      desc: "Validation rules and template coverage by domain — which columns are checked and how.",
+    },
+    {
       to: "/validator",
       label: "Validator",
       icon: CheckSquare,
       desc: "Upload and validate migration Excel files for Products, Vendors, or Customers against all business rules.",
-    },
-    {
-      to: "/migrations",
-      label: "Migrations",
-      icon: GitMerge,
-      desc: "History of all validation runs in this session - re-open any past result without re-uploading.",
     },
     {
       to: "/diff",
@@ -263,10 +264,10 @@ function useKeyboardShortcuts(setShowLov, setShowHelp) {
       if (e.altKey && !e.ctrlKey && !e.metaKey) {
         const routes = [
           "/",
+          "/migrations",
           "/validator",
           "/tracker",
           "/lov-explorer",
-          "/migrations",
           "/diff",
         ];
         const idx = parseInt(e.key, 10) - 1;
@@ -323,21 +324,21 @@ function NavItem({ to, label, Icon }) {
 const MENU_EASE = [0.22, 1, 0.36, 1];
 
 const migrationsMenuPanel = {
-  initial: { opacity: 0, y: -6, scale: 0.98 },
+  initial: { opacity: 0, y: -8, scale: 0.97 },
   animate: {
     opacity: 1,
     y: 0,
     scale: 1,
     transition: {
-      duration: 0.22,
+      duration: 0.34,
       ease: MENU_EASE,
     },
   },
   exit: {
     opacity: 0,
-    y: -4,
-    scale: 0.98,
-    transition: { duration: 0.16, ease: MENU_EASE },
+    y: -6,
+    scale: 0.97,
+    transition: { duration: 0.24, ease: MENU_EASE },
   },
 };
 
@@ -345,8 +346,8 @@ const migrationsMenuList = {
   hidden: {},
   visible: {
     transition: {
-      staggerChildren: 0.04,
-      delayChildren: 0.05,
+      staggerChildren: 0.055,
+      delayChildren: 0.08,
     },
   },
 };
@@ -356,13 +357,17 @@ const migrationsMenuItem = {
   visible: {
     opacity: 1,
     x: 0,
-    transition: { duration: 0.2, ease: MENU_EASE },
+    transition: { duration: 0.28, ease: MENU_EASE },
   },
 };
+
+const MENU_OPEN_DELAY_MS = 280;
+const MENU_CLOSE_DELAY_MS = 320;
 
 function NavMigrationsDropdown({ items }) {
   const [open, setOpen] = useState(false);
   const closeTimerRef = useRef(null);
+  const openTimerRef = useRef(null);
   const location = useLocation();
   const MenuIcon = NAV_MIGRATIONS_MENU.icon;
 
@@ -381,21 +386,40 @@ function NavMigrationsDropdown({ items }) {
     }
   };
 
+  const clearOpenTimer = () => {
+    if (openTimerRef.current != null) {
+      window.clearTimeout(openTimerRef.current);
+      openTimerRef.current = null;
+    }
+  };
+
   const scheduleClose = () => {
     clearCloseTimer();
     closeTimerRef.current = window.setTimeout(() => {
       setOpen(false);
       closeTimerRef.current = null;
-    }, 140);
+    }, MENU_CLOSE_DELAY_MS);
+  };
+
+  const scheduleOpen = () => {
+    clearOpenTimer();
+    openTimerRef.current = window.setTimeout(() => {
+      setOpen(true);
+      openTimerRef.current = null;
+    }, MENU_OPEN_DELAY_MS);
   };
 
   useEffect(() => {
-    return () => clearCloseTimer();
+    return () => {
+      clearCloseTimer();
+      clearOpenTimer();
+    };
   }, []);
 
   useEffect(() => {
     setOpen(false);
     clearCloseTimer();
+    clearOpenTimer();
   }, [location.pathname]);
 
   useEffect(() => {
@@ -412,16 +436,23 @@ function NavMigrationsDropdown({ items }) {
       className="relative flex h-16 items-stretch"
       onMouseEnter={() => {
         clearCloseTimer();
-        setOpen(true);
+        scheduleOpen();
       }}
-      onMouseLeave={scheduleClose}
+      onMouseLeave={() => {
+        clearOpenTimer();
+        scheduleClose();
+      }}
     >
       <button
         type="button"
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label={`${NAV_MIGRATIONS_MENU.label} menu`}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          clearOpenTimer();
+          clearCloseTimer();
+          setOpen((v) => !v);
+        }}
         className={
           "flex items-center gap-2 px-4 py-2 text-base font-medium border-b-2 transition-all duration-200 ease-out " +
           (open || childActive
@@ -433,7 +464,7 @@ function NavMigrationsDropdown({ items }) {
         {NAV_MIGRATIONS_MENU.label}
         <ChevronDown
           className={
-            "h-4 w-4 shrink-0 opacity-70 transition-transform duration-200 ease-out " +
+            "h-4 w-4 shrink-0 opacity-70 transition-transform duration-300 ease-out " +
             (open ? "rotate-180" : "")
           }
           aria-hidden="true"

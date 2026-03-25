@@ -648,7 +648,7 @@ export default function Migrations() {
     <div className="space-y-5">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Migrations</h1>
+          <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Rules</h1>
           <p className="text-xs text-slate-400 mt-0.5">
             Template coverage across all domains
           </p>
