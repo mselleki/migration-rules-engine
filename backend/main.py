@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import csv
 import io
+import logging
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -34,13 +38,84 @@ from lov_store import (
     get_custom_lovs,
     get_history as get_lov_history,
 )
+import tracker_cache
+import tracker_config
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Scheduler helpers
+# ---------------------------------------------------------------------------
+
+
+def _report_to_dict(report) -> dict:
+    return {
+        "summary": {
+            "total_rows": report.total_rows,
+            "total_errors": report.total_errors,
+            "errors_by_rule": report.errors_by_rule,
+        },
+        "errors": report.errors,
+        "warnings": report.warnings,
+        "completion": report.completion,
+    }
+
+
+async def _refresh_domain(domain: str) -> None:
+    """Fetch the SharePoint tracker for one domain and update the cache."""
+    from tracker_validator import validate_tracker
+    from sharepoint_connector import download_tracker_file
+
+    url = tracker_config.TRACKER_URLS.get(domain, "")
+    if not url:
+        return
+
+    try:
+        file_bytes, filename = download_tracker_file(url)
+        report = validate_tracker(domain, file_bytes, filename=filename)
+        result = _report_to_dict(report)
+        result["source"] = {"type": "sharepoint", "filename": filename}
+        tracker_cache.set_result(domain, result)
+        logger.info("Tracker cache updated for domain '%s' (%s)", domain, filename)
+    except Exception as exc:
+        tracker_cache.set_error(domain, str(exc))
+        logger.error("Tracker refresh failed for domain '%s': %s", domain, exc)
+
+
+async def _daily_refresh() -> None:
+    for domain in tracker_config.TRACKER_URLS:
+        await _refresh_domain(domain)
+
 
 # ---------------------------------------------------------------------------
 # App setup
 # ---------------------------------------------------------------------------
 
-app = FastAPI(title="Sysco Migration Rules Engine", version="1.0.0")
+_scheduler = AsyncIOScheduler()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    tracker_cache.load()
+    _scheduler.add_job(
+        _daily_refresh,
+        CronTrigger(hour=tracker_config.REFRESH_HOUR, minute=0),
+        id="daily_tracker_refresh",
+        replace_existing=True,
+    )
+    _scheduler.start()
+    logger.info(
+        "Scheduler started — tracker auto-refresh at %02d:00 UTC",
+        tracker_config.REFRESH_HOUR,
+    )
+    yield
+    # Shutdown
+    _scheduler.shutdown(wait=False)
+
+
+app = FastAPI(title="Sysco Migration Rules Engine", version="1.0.0", lifespan=lifespan)
 
 _cors_origins = os.getenv(
     "CORS_ORIGINS",
@@ -57,7 +132,7 @@ app.add_middleware(
 REFERENCE_DIR = Path(__file__).resolve().parent.parent / "reference"
 OUTPUT_DIR = Path(__file__).resolve().parent.parent / "output"
 
-init_db()
+init_db()  # ensure SQLite tables exist
 
 # ---------------------------------------------------------------------------
 # LOV cache — reference data loaded once at startup
@@ -414,6 +489,43 @@ async def validate_tracker_sharepoint(body: SharePointTrackerIn):
             "filename": filename,
             "url": body.sharepoint_url,
         },
+    }
+
+
+# ---------------------------------------------------------------------------
+# Tracker dashboard (cached results + manual refresh)
+# ---------------------------------------------------------------------------
+
+
+@app.get("/tracker/dashboard")
+def get_tracker_dashboard():
+    """Return cached validation results and config status for all domains."""
+    result = {}
+    for domain, url in tracker_config.TRACKER_URLS.items():
+        result[domain] = {
+            "configured": bool(url),
+            "cached": tracker_cache.get(domain),
+        }
+    return result
+
+
+@app.post("/tracker/refresh")
+async def refresh_tracker(domain: str):
+    """Manually trigger a SharePoint fetch + validation for one domain."""
+    if domain not in tracker_config.TRACKER_URLS:
+        raise HTTPException(400, f"Unknown domain '{domain}'")
+    if not tracker_config.TRACKER_URLS[domain]:
+        raise HTTPException(400, f"No SharePoint URL configured for domain '{domain}'")
+
+    await _refresh_domain(domain)
+
+    cached = tracker_cache.get(domain)
+    if cached and cached.get("error"):
+        raise HTTPException(502, cached["error"])
+
+    return {
+        "configured": True,
+        "cached": cached,
     }
 
 

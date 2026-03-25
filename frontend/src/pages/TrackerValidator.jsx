@@ -1,10 +1,11 @@
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import {
   Upload,
   X,
   FileSpreadsheet,
   AlertCircle,
   CheckCircle2,
+  RefreshCw,
 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "../components/ui/card.jsx";
 import { Badge } from "../components/ui/badge.jsx";
@@ -445,328 +446,378 @@ function CompletionPanel({ completion }) {
   );
 }
 
-// --- Main ---
+// --- Helpers ---
 
-export default function TrackerValidator() {
-  const [domain, setDomain] = useState("Products");
-  const [mode, setMode] = useState("sharepoint"); // "sharepoint" | "upload"
-  const [file, setFile] = useState(null);
-  const [sharepointUrl, setSharepointUrl] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [report, setReport] = useState(null);
-  const [error, setError] = useState(null);
+function timeAgo(ts) {
+  if (!ts) return null;
+  const diff = Date.now() - ts * 1000;
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
 
-  const handleDomainChange = useCallback((d) => {
-    setDomain(d);
-    setFile(null);
-    setReport(null);
-    setError(null);
-  }, []);
+// --- Results block (shared between live and cached) ---
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    setReport(null);
-    try {
-      let res;
-      if (mode === "sharepoint") {
-        if (!sharepointUrl.trim()) return;
-        res = await fetch(`${API}/validate/tracker/sharepoint`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            domain,
-            sharepoint_url: sharepointUrl.trim(),
-          }),
-        });
-      } else {
-        if (!file) return;
-        const fd = new FormData();
-        fd.append("domain", domain);
-        fd.append("file", file);
-        res = await fetch(`${API}/validate/tracker`, {
-          method: "POST",
-          body: fd,
-        });
-      }
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        throw new Error(d.detail || `HTTP ${res.status}`);
-      }
-      setReport(await res.json());
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const canSubmit =
-    mode === "sharepoint" ? sharepointUrl.trim().length > 0 : !!file;
+function ResultsBlock({ report, error }) {
   const totalErrors = report?.summary?.total_errors ?? 0;
   const totalRows = report?.summary?.total_rows ?? 0;
   const errorsByRule = report?.summary?.errors_by_rule ?? {};
 
   return (
+    <div className="space-y-4">
+      {error && (
+        <div className="flex items-start gap-2.5 rounded-md border border-danger-100 dark:border-red-800/40 bg-danger-50 dark:bg-red-900/20 px-4 py-3 text-sm text-danger-700 dark:text-red-400">
+          <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {report && (
+        <>
+          {/* Warnings */}
+          {report.warnings?.map((w, i) => (
+            <div
+              key={i}
+              className="flex items-start gap-2.5 rounded-md border border-warning-100 dark:border-yellow-800/40 bg-warning-50 dark:bg-yellow-900/20 px-4 py-3 text-sm text-warning-500 dark:text-yellow-300"
+            >
+              <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" /> {w}
+            </div>
+          ))}
+
+          {/* Metrics strip */}
+          <div className="grid grid-cols-2 divide-x divide-slate-200 dark:divide-slate-700 border border-slate-200 dark:border-slate-700 rounded-md bg-white dark:bg-slate-900">
+            {[
+              { label: "Total rows", value: totalRows },
+              {
+                label: "Total errors",
+                value: totalErrors,
+                danger: totalErrors > 0,
+                accent: totalErrors === 0,
+              },
+            ].map(({ label, value, danger, accent }) => (
+              <div key={label} className="px-5 py-3">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">
+                  {label}
+                </p>
+                <p
+                  className={
+                    "text-xl font-semibold " +
+                    (danger
+                      ? "text-danger-500"
+                      : accent
+                        ? "text-success-500"
+                        : "text-slate-800 dark:text-slate-100")
+                  }
+                >
+                  {value}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Completion analysis */}
+          {report.completion?.length > 0 && (
+            <CompletionPanel completion={report.completion} />
+          )}
+
+          {/* Errors by rule */}
+          {Object.keys(errorsByRule).length > 0 && (
+            <Card>
+              <CardHeader>
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                  Errors by Rule
+                </span>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {Object.entries(errorsByRule)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([rule, count]) => (
+                      <div key={rule} className="flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate">
+                            {rule}
+                          </p>
+                          <div className="mt-1 h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-danger-500 rounded-full transition-all"
+                              style={{
+                                width: `${(count / totalErrors) * 100}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <Badge
+                          variant="danger"
+                          className="flex-shrink-0 tabular-nums"
+                        >
+                          {count}
+                        </Badge>
+                      </div>
+                    ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Error table */}
+          <Card>
+            <CardHeader>
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                Detailed Errors
+              </span>
+            </CardHeader>
+            <CardContent>
+              {report.errors?.length === 0 ? (
+                <div className="flex items-center gap-2.5 rounded-md border border-success-100 dark:border-green-800/40 bg-success-50 dark:bg-green-900/20 px-4 py-3 text-sm text-success-500 dark:text-green-400">
+                  <CheckCircle2 className="h-4 w-4 flex-shrink-0" /> All rules
+                  passed - no errors found.
+                </div>
+              ) : (
+                <ErrorTable errors={report.errors ?? []} />
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
+    </div>
+  );
+}
+
+// --- Main ---
+
+export default function TrackerValidator() {
+  const [domain, setDomain] = useState("Products");
+  const [dashboard, setDashboard] = useState(null); // { Products: {configured, cached}, ... }
+  const [refreshing, setRefreshing] = useState(false);
+  // Upload fallback
+  const [file, setFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadReport, setUploadReport] = useState(null);
+  const [uploadError, setUploadError] = useState(null);
+
+  // Load cached dashboard on mount
+  useEffect(() => {
+    fetch(`${API}/tracker/dashboard`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => data && setDashboard(data))
+      .catch(() => {});
+  }, []);
+
+  const domainInfo = dashboard?.[domain];
+  const isConfigured = domainInfo?.configured ?? false;
+  const cached = domainInfo?.cached ?? null;
+  const report = cached?.report ?? null;
+  const cacheError = cached?.error ?? null;
+  const updatedAt = cached?.updated_at ?? null;
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    try {
+      const res = await fetch(
+        `${API}/tracker/refresh?domain=${encodeURIComponent(domain)}`,
+        { method: "POST" },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+      // Merge updated domain into dashboard
+      setDashboard((prev) => ({ ...prev, [domain]: data }));
+    } catch (err) {
+      // Error is stored in cache by backend; re-fetch dashboard to show it
+      fetch(`${API}/tracker/dashboard`)
+        .then((r) => r.json())
+        .then(setDashboard)
+        .catch(() => {});
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  async function handleUpload(e) {
+    e.preventDefault();
+    if (!file) return;
+    setUploading(true);
+    setUploadError(null);
+    setUploadReport(null);
+    try {
+      const fd = new FormData();
+      fd.append("domain", domain);
+      fd.append("file", file);
+      const res = await fetch(`${API}/validate/tracker`, {
+        method: "POST",
+        body: fd,
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.detail || `HTTP ${res.status}`);
+      }
+      setUploadReport(await res.json());
+    } catch (err) {
+      setUploadError(err.message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
     <div className="space-y-5">
       {/* Header */}
-      <div>
-        <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-          Tracker Validator
-        </h1>
-        <p className="text-xs text-slate-400 mt-0.5">
-          Validate P1 Data Cleansing tracker files
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            Tracker Dashboard
+          </h1>
+          <p className="text-xs text-slate-400 mt-0.5">
+            P1 Data Cleansing — live from SharePoint
+          </p>
+        </div>
+        {isConfigured && (
+          <Button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1.5 flex-shrink-0"
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
+            />
+            {refreshing ? "Updating…" : "Update dashboard"}
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 items-start">
-        {/* Configuration card */}
+        {/* Left panel */}
         <Card className="xl:col-span-1">
           <CardHeader>
             <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
-              Configuration
+              Domain
             </span>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Domain */}
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Domain
-                </label>
-                <Select value={domain} onValueChange={handleDomainChange}>
-                  <SelectTrigger aria-label="Select domain">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DOMAINS.map((d) => (
-                      <SelectItem key={d} value={d}>
-                        {d}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+          <CardContent className="space-y-4">
+            <Select
+              value={domain}
+              onValueChange={(d) => {
+                setDomain(d);
+                setFile(null);
+                setUploadReport(null);
+                setUploadError(null);
+              }}
+            >
+              <SelectTrigger aria-label="Select domain">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DOMAINS.map((d) => (
+                  <SelectItem key={d} value={d}>
+                    {d}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-              {/* Source mode toggle */}
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Source
-                </label>
-                <div className="flex rounded-md border border-slate-200 dark:border-slate-700 overflow-hidden text-xs">
-                  {[
-                    { id: "sharepoint", label: "SharePoint" },
-                    { id: "upload", label: "Upload" },
-                  ].map(({ id, label }) => (
+            {/* Status */}
+            {isConfigured ? (
+              <div className="space-y-1 text-xs text-slate-400">
+                <div className="flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
+                  <span>Connected to SharePoint</span>
+                </div>
+                {updatedAt && (
+                  <p className="pl-3">Last updated {timeAgo(updatedAt)}</p>
+                )}
+                {!cached && !refreshing && (
+                  <p className="pl-3 text-slate-400">
+                    No data yet —{" "}
                     <button
-                      key={id}
-                      type="button"
-                      onClick={() => {
-                        setMode(id);
-                        setFile(null);
-                        setReport(null);
-                        setError(null);
-                      }}
-                      className={`flex-1 py-1.5 font-medium transition-colors ${
-                        mode === id
-                          ? "bg-brand-500 text-white"
-                          : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-                      }`}
+                      onClick={handleRefresh}
+                      className="text-brand-500 hover:underline"
                     >
-                      {label}
+                      load now
                     </button>
-                  ))}
-                </div>
+                  </p>
+                )}
               </div>
-
-              {/* SharePoint URL input */}
-              {mode === "sharepoint" && (
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    SharePoint URL
-                  </label>
-                  <textarea
-                    rows={3}
-                    placeholder="Paste the SharePoint link to the tracker file…"
-                    value={sharepointUrl}
-                    onChange={(e) => setSharepointUrl(e.target.value)}
-                    className="w-full text-xs border border-slate-200 dark:border-slate-700 rounded-md px-2.5 py-2 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-brand-500 focus:outline-none resize-none text-slate-700 dark:text-slate-300 placeholder:text-slate-300 dark:placeholder:text-slate-600"
-                  />
-                </div>
-              )}
-
-              {/* File upload */}
-              {mode === "upload" && (
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    Tracker File
-                  </label>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-xs text-slate-400">
+                  No SharePoint URL configured for this domain. Upload a file
+                  manually or ask your admin to set{" "}
+                  <code className="px-1 py-px rounded bg-slate-100 dark:bg-slate-800 text-[10px]">
+                    TRACKER_URL_{domain.toUpperCase()}
+                  </code>{" "}
+                  in Railway.
+                </p>
+                <form onSubmit={handleUpload} className="space-y-3">
                   <FileDropZone
                     label="Tracker file (.xlsx / .xlsb)"
                     file={file}
                     onFile={setFile}
                   />
-                </div>
-              )}
-
-              <Button
-                type="submit"
-                disabled={!canSubmit || loading}
-                className="w-full"
-                size="md"
-              >
-                {loading ? (
-                  <>
-                    <span className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />{" "}
-                    {mode === "sharepoint"
-                      ? "Fetching from SharePoint…"
-                      : "Validating…"}
-                  </>
-                ) : mode === "sharepoint" ? (
-                  "Load & Validate"
-                ) : (
-                  "Run Validation"
-                )}
-              </Button>
-            </form>
+                  <Button
+                    type="submit"
+                    disabled={!file || uploading}
+                    className="w-full"
+                    size="md"
+                  >
+                    {uploading ? (
+                      <>
+                        <span className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />{" "}
+                        Validating…
+                      </>
+                    ) : (
+                      "Run Validation"
+                    )}
+                  </Button>
+                </form>
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Results area */}
-        {(error || report) && (
-          <div className="xl:col-span-2 space-y-4">
-            {error && (
-              <div className="flex items-start gap-2.5 rounded-md border border-danger-100 dark:border-red-800/40 bg-danger-50 dark:bg-red-900/20 px-4 py-3 text-sm text-danger-700 dark:text-red-400">
-                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
+        {/* Results */}
+        <div className="xl:col-span-2">
+          {refreshing && !cached && (
+            <div className="flex items-center justify-center h-40 text-slate-400 text-sm gap-2">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              Fetching from SharePoint…
+            </div>
+          )}
 
-            {report && (
-              <div className="space-y-4">
-                {/* SharePoint source badge */}
-                {report.source?.type === "sharepoint" && (
-                  <div className="flex items-center gap-2 text-xs text-slate-400">
-                    <FileSpreadsheet className="h-3.5 w-3.5 flex-shrink-0" />
-                    <span className="truncate">{report.source.filename}</span>
-                    <span className="text-slate-300 dark:text-slate-600">
-                      ·
-                    </span>
-                    <span className="text-emerald-500">
-                      Live from SharePoint
-                    </span>
-                  </div>
-                )}
-
-                {/* Warnings */}
-                {report.warnings?.map((w, i) => (
-                  <div
-                    key={i}
-                    className="flex items-start gap-2.5 rounded-md border border-warning-100 dark:border-yellow-800/40 bg-warning-50 dark:bg-yellow-900/20 px-4 py-3 text-sm text-warning-500 dark:text-yellow-300"
-                  >
-                    <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" /> {w}
-                  </div>
-                ))}
-
-                {/* Metrics strip */}
-                <div className="grid grid-cols-2 divide-x divide-slate-200 dark:divide-slate-700 border border-slate-200 dark:border-slate-700 rounded-md bg-white dark:bg-slate-900">
-                  {[
-                    { label: "Total rows", value: totalRows },
-                    {
-                      label: "Total errors",
-                      value: totalErrors,
-                      danger: totalErrors > 0,
-                      accent: totalErrors === 0,
-                    },
-                  ].map(({ label, value, danger, accent }) => (
-                    <div key={label} className="px-5 py-3">
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">
-                        {label}
-                      </p>
-                      <p
-                        className={
-                          "text-xl font-semibold " +
-                          (danger
-                            ? "text-danger-500"
-                            : accent
-                              ? "text-success-500"
-                              : "text-slate-800 dark:text-slate-100")
-                        }
-                      >
-                        {value}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Completion analysis */}
-                {report.completion?.length > 0 && (
-                  <CompletionPanel completion={report.completion} />
-                )}
-
-                {/* Errors by rule */}
-                {Object.keys(errorsByRule).length > 0 && (
-                  <Card>
-                    <CardHeader>
-                      <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                        Errors by Rule
+          {/* Cached SharePoint results */}
+          {(report || cacheError) && (
+            <div>
+              {cached?.report?.source?.filename && (
+                <div className="flex items-center gap-2 text-xs text-slate-400 mb-3">
+                  <FileSpreadsheet className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span className="truncate">
+                    {cached.report.source.filename}
+                  </span>
+                  <span className="text-slate-300 dark:text-slate-600">·</span>
+                  <span className="text-emerald-500">SharePoint</span>
+                  {updatedAt && (
+                    <>
+                      <span className="text-slate-300 dark:text-slate-600">
+                        ·
                       </span>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        {Object.entries(errorsByRule)
-                          .sort((a, b) => b[1] - a[1])
-                          .map(([rule, count]) => (
-                            <div key={rule} className="flex items-center gap-3">
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate">
-                                  {rule}
-                                </p>
-                                <div className="mt-1 h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full bg-danger-500 rounded-full transition-all"
-                                    style={{
-                                      width: `${(count / totalErrors) * 100}%`,
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                              <Badge
-                                variant="danger"
-                                className="flex-shrink-0 tabular-nums"
-                              >
-                                {count}
-                              </Badge>
-                            </div>
-                          ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+                      <span>{timeAgo(updatedAt)}</span>
+                    </>
+                  )}
+                </div>
+              )}
+              <ResultsBlock report={report} error={cacheError} />
+            </div>
+          )}
 
-                {/* Error table */}
-                <Card>
-                  <CardHeader>
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                      Detailed Errors
-                    </span>
-                  </CardHeader>
-                  <CardContent>
-                    {report.errors?.length === 0 ? (
-                      <div className="flex items-center gap-2.5 rounded-md border border-success-100 dark:border-green-800/40 bg-success-50 dark:bg-green-900/20 px-4 py-3 text-sm text-success-500 dark:text-green-400">
-                        <CheckCircle2 className="h-4 w-4 flex-shrink-0" /> All
-                        rules passed - no errors found.
-                      </div>
-                    ) : (
-                      <ErrorTable errors={report.errors ?? []} />
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-          </div>
-        )}
+          {/* Upload fallback results */}
+          {(uploadReport || uploadError) && !isConfigured && (
+            <ResultsBlock report={uploadReport} error={uploadError} />
+          )}
+        </div>
       </div>
     </div>
   );
