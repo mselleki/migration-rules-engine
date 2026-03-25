@@ -31,6 +31,13 @@ from utils.lov_extractor import (
     extract_commodity_codes,
 )
 from diff import run_diff, DIFF_CONFIG
+from reconcile import (
+    load_ct_product,
+    load_stibo_product,
+    load_erp_product,
+    reconcile_products,
+    reconcile_invoice_os,
+)
 from lov_store import (
     init_db,
     add_custom_lov,
@@ -527,6 +534,65 @@ async def refresh_tracker(domain: str):
         "configured": True,
         "cached": cached,
     }
+
+
+# ---------------------------------------------------------------------------
+# Reconciliation endpoints
+# ---------------------------------------------------------------------------
+
+
+@app.post("/reconcile/product")
+async def reconcile_product_endpoint(
+    erp_type: str = Form("Jeeves"),
+    ct_file: UploadFile = File(...),
+    erp_file: UploadFile = File(...),
+    stibo_file: UploadFile = File(...),
+):
+    """Range reconciliation: compare product codes across CT, ERP, and STIBO."""
+    ct_bytes = await ct_file.read()
+    erp_bytes = await erp_file.read()
+    stibo_bytes = await stibo_file.read()
+    try:
+        ct_codes = load_ct_product(ct_bytes, ct_file.filename or "")
+        stibo_codes = load_stibo_product(stibo_bytes)
+        erp_codes = load_erp_product(erp_bytes, erp_type, erp_file.filename or "")
+    except (ValueError, NotImplementedError, KeyError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return reconcile_products(ct_codes, erp_codes, stibo_codes, erp_name=erp_type)
+
+
+@app.post("/reconcile/invoice-os")
+async def reconcile_invoice_os_endpoint(
+    erp_type: str = Form("Jeeves"),
+    ct_vendor_file: UploadFile | None = File(None),
+    ct_customer_file: UploadFile | None = File(None),
+    erp_vendor_file: UploadFile | None = File(None),
+    erp_customer_file: UploadFile | None = File(None),
+    stibo_vendor_invoice: UploadFile | None = File(None),
+    stibo_vendor_os: UploadFile | None = File(None),
+    stibo_customer_invoice: UploadFile | None = File(None),
+    stibo_customer_os: UploadFile | None = File(None),
+):
+    """Invoice + Ordering-Shipping reconciliation for Vendor and Customer codes."""
+
+    async def _read(f: UploadFile | None) -> bytes | None:
+        return await f.read() if f else None
+
+    try:
+        result = reconcile_invoice_os(
+            erp_name=erp_type,
+            ct_vendor_bytes=await _read(ct_vendor_file),
+            ct_customer_bytes=await _read(ct_customer_file),
+            erp_vendor_bytes=await _read(erp_vendor_file),
+            erp_customer_bytes=await _read(erp_customer_file),
+            stibo_vendor_invoice_bytes=await _read(stibo_vendor_invoice),
+            stibo_vendor_os_bytes=await _read(stibo_vendor_os),
+            stibo_customer_invoice_bytes=await _read(stibo_customer_invoice),
+            stibo_customer_os_bytes=await _read(stibo_customer_os),
+        )
+    except (ValueError, NotImplementedError, KeyError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return result
 
 
 @app.get("/diff/config")
