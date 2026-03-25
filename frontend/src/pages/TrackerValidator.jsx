@@ -29,6 +29,22 @@ import API from "../api.js";
 
 const DOMAINS = ["Products", "Vendors", "Customers"];
 
+/** Primary identifier column per Tracker domain (Data Overview sticky column). */
+const DOMAIN_ID_COLUMN = {
+  Products: "SUPC",
+  Vendors: "SUVC",
+  Customers: "SUCC",
+};
+
+function resolveIdColumn(domain, allCols) {
+  const preferred = DOMAIN_ID_COLUMN[domain];
+  if (preferred && allCols.includes(preferred)) return preferred;
+  for (const c of ["SUPC", "SUVC", "SUCC"]) {
+    if (allCols.includes(c)) return c;
+  }
+  return allCols[0] ?? "SUPC";
+}
+
 // ---------------------------------------------------------------------------
 // Mock data — preview only, never sent to the API
 // ---------------------------------------------------------------------------
@@ -807,11 +823,11 @@ function CompletionPanel({ completion }) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex w-full min-w-0 items-center justify-between gap-3">
           <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
             Completion Analysis
           </span>
-          <span className="text-lg font-bold text-brand-500">
+          <span className="text-lg font-bold text-brand-500 tabular-nums shrink-0">
             {Math.round(stats.overallRate * 100)}%
           </span>
         </div>
@@ -954,7 +970,7 @@ function CompletionPanel({ completion }) {
 
 // --- Data Grid ---
 
-function DataGridPanel({ rows, errors }) {
+function DataGridPanel({ rows, errors, domain = "Products" }) {
   const [idFilter, setIdFilter] = useState("");
   const [colFilter, setColFilter] = useState("");
   const [activeSheet, setActiveSheet] = useState(0);
@@ -964,22 +980,25 @@ function DataGridPanel({ rows, errors }) {
   const sheetData = rows?.[activeSheet] ?? null;
   const allData = sheetData?.data ?? [];
   const allCols = allData.length > 0 ? Object.keys(allData[0]) : [];
-  const idCol = allCols[0] ?? "SUPC";
+  const idCol = resolveIdColumn(domain, allCols);
 
   const errorIds = useMemo(
     () => new Set(errors?.map((e) => String(e.supc)) ?? []),
     [errors],
   );
 
-  const visibleCols = useMemo(
-    () =>
-      colFilter.trim()
-        ? allCols.filter((c) =>
-            c.toLowerCase().includes(colFilter.toLowerCase()),
-          )
-        : allCols,
-    [allCols, colFilter],
-  );
+  const visibleCols = useMemo(() => {
+    const q = colFilter.trim().toLowerCase();
+    const matched = q
+      ? allCols.filter((c) => c.toLowerCase().includes(q))
+      : [...allCols];
+    if (!allCols.includes(idCol)) return matched;
+    const rest = matched.filter((c) => c !== idCol);
+    if (!matched.includes(idCol)) {
+      return [idCol, ...rest];
+    }
+    return [idCol, ...rest];
+  }, [allCols, colFilter, idCol]);
 
   const filteredRows = useMemo(() => {
     const q = idFilter.trim().toLowerCase();
@@ -1061,12 +1080,12 @@ function DataGridPanel({ rows, errors }) {
           >
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-800/60">
-                {visibleCols.map((col, i) => (
+                {visibleCols.map((col) => (
                   <th
                     key={col}
                     className={`px-3 py-2 text-left font-medium text-slate-500 whitespace-nowrap border-b border-slate-200 dark:border-slate-700 ${
-                      i === 0
-                        ? "sticky left-0 z-10 bg-slate-50 dark:bg-slate-800 shadow-[1px_0_0_0_rgba(0,0,0,0.08)]"
+                      col === idCol
+                        ? "sticky left-0 z-20 bg-slate-50 dark:bg-slate-800 shadow-[1px_0_0_0_rgba(0,0,0,0.08)]"
                         : ""
                     }`}
                   >
@@ -1085,20 +1104,22 @@ function DataGridPanel({ rows, errors }) {
                     : "bg-slate-50/50 dark:bg-slate-800/20";
                 return (
                   <tr key={ri} className={rowBg}>
-                    {visibleCols.map((col, i) => {
+                    {visibleCols.map((col) => {
                       const val = row[col];
                       const isEmpty = val === "" || val == null;
+                      const isStickyCol = col === idCol;
                       return (
                         <td
                           key={col}
                           title={String(val ?? "")}
                           className={[
                             "px-3 py-1.5 border-b border-slate-100 dark:border-slate-800 whitespace-nowrap max-w-[200px] truncate",
-                            i === 0
-                              ? `sticky left-0 z-10 font-mono font-medium shadow-[1px_0_0_0_rgba(0,0,0,0.08)] ${rowBg}`
-                              : isEmpty
-                                ? "text-slate-300 dark:text-slate-600"
-                                : "text-slate-700 dark:text-slate-300",
+                            isStickyCol
+                              ? `sticky left-0 z-20 font-mono font-medium shadow-[1px_0_0_0_rgba(0,0,0,0.08)] ${rowBg}`
+                              : "",
+                            isEmpty
+                              ? "text-slate-300 dark:text-slate-600"
+                              : "text-slate-700 dark:text-slate-300",
                           ].join(" ")}
                         >
                           {isEmpty ? "—" : String(val)}
@@ -1158,7 +1179,7 @@ function timeAgo(ts) {
 
 // --- Results block (shared between live and cached) ---
 
-function ResultsBlock({ report, error }) {
+function ResultsBlock({ report, error, domain = "Products" }) {
   const totalErrors = report?.summary?.total_errors ?? 0;
   const totalRows = report?.summary?.total_rows ?? 0;
   const errorsByRule = report?.summary?.errors_by_rule ?? {};
@@ -1222,7 +1243,11 @@ function ResultsBlock({ report, error }) {
 
           {/* Data overview grid */}
           {report.rows?.length > 0 && (
-            <DataGridPanel rows={report.rows} errors={report.errors} />
+            <DataGridPanel
+              rows={report.rows}
+              errors={report.errors}
+              domain={domain}
+            />
           )}
 
           {/* Errors by rule */}
@@ -1482,7 +1507,7 @@ export default function TrackerValidator() {
               </span>
               <span>Sample data — not connected to SharePoint</span>
             </div>
-            <ResultsBlock report={MOCK_REPORT} error={null} />
+            <ResultsBlock report={MOCK_REPORT} error={null} domain={domain} />
           </div>
         )}
 
@@ -1513,12 +1538,16 @@ export default function TrackerValidator() {
                 )}
               </div>
             )}
-            <ResultsBlock report={report} error={cacheError} />
+            <ResultsBlock report={report} error={cacheError} domain={domain} />
           </div>
         )}
 
         {!mockMode && (uploadReport || uploadError) && !isConfigured && (
-          <ResultsBlock report={uploadReport} error={uploadError} />
+          <ResultsBlock
+            report={uploadReport}
+            error={uploadError}
+            domain={domain}
+          />
         )}
       </div>
     </div>
