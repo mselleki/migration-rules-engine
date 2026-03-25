@@ -7,7 +7,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   LayoutDashboard,
   CheckSquare,
@@ -320,8 +320,49 @@ function NavItem({ to, label, Icon }) {
   );
 }
 
+const MENU_EASE = [0.22, 1, 0.36, 1];
+
+const migrationsMenuPanel = {
+  initial: { opacity: 0, y: -6, scale: 0.98 },
+  animate: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      duration: 0.22,
+      ease: MENU_EASE,
+    },
+  },
+  exit: {
+    opacity: 0,
+    y: -4,
+    scale: 0.98,
+    transition: { duration: 0.16, ease: MENU_EASE },
+  },
+};
+
+const migrationsMenuList = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.04,
+      delayChildren: 0.05,
+    },
+  },
+};
+
+const migrationsMenuItem = {
+  hidden: { opacity: 0, x: -8 },
+  visible: {
+    opacity: 1,
+    x: 0,
+    transition: { duration: 0.2, ease: MENU_EASE },
+  },
+};
+
 function NavMigrationsDropdown({ items }) {
   const [open, setOpen] = useState(false);
+  const closeTimerRef = useRef(null);
   const location = useLocation();
   const MenuIcon = NAV_MIGRATIONS_MENU.icon;
 
@@ -333,8 +374,28 @@ function NavMigrationsDropdown({ items }) {
           location.pathname.startsWith(`${item.to}/`),
   );
 
+  const clearCloseTimer = () => {
+    if (closeTimerRef.current != null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  };
+
+  const scheduleClose = () => {
+    clearCloseTimer();
+    closeTimerRef.current = window.setTimeout(() => {
+      setOpen(false);
+      closeTimerRef.current = null;
+    }, 140);
+  };
+
+  useEffect(() => {
+    return () => clearCloseTimer();
+  }, []);
+
   useEffect(() => {
     setOpen(false);
+    clearCloseTimer();
   }, [location.pathname]);
 
   useEffect(() => {
@@ -349,8 +410,11 @@ function NavMigrationsDropdown({ items }) {
   return (
     <div
       className="relative flex h-16 items-stretch"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      onMouseEnter={() => {
+        clearCloseTimer();
+        setOpen(true);
+      }}
+      onMouseLeave={scheduleClose}
     >
       <button
         type="button"
@@ -359,7 +423,7 @@ function NavMigrationsDropdown({ items }) {
         aria-label={`${NAV_MIGRATIONS_MENU.label} menu`}
         onClick={() => setOpen((v) => !v)}
         className={
-          "flex items-center gap-2 px-4 py-2 text-base font-medium border-b-2 transition-colors " +
+          "flex items-center gap-2 px-4 py-2 text-base font-medium border-b-2 transition-all duration-200 ease-out " +
           (open || childActive
             ? "border-brand-500 text-brand-500 dark:text-brand-400"
             : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200")
@@ -369,41 +433,55 @@ function NavMigrationsDropdown({ items }) {
         {NAV_MIGRATIONS_MENU.label}
         <ChevronDown
           className={
-            "h-4 w-4 shrink-0 opacity-70 transition-transform " +
+            "h-4 w-4 shrink-0 opacity-70 transition-transform duration-200 ease-out " +
             (open ? "rotate-180" : "")
           }
           aria-hidden="true"
         />
       </button>
-      {open && (
-        <div
-          className="absolute left-0 top-full z-50 min-w-[14rem] pt-1"
-          role="presentation"
-        >
-          <div
-            className="py-1 rounded-md border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900"
-            role="menu"
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            key="migrations-menu"
+            className="absolute left-0 top-full z-50 min-w-[14rem] pt-1"
+            role="presentation"
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            variants={migrationsMenuPanel}
           >
-            {items.map(({ to, label, icon: Icon }) => (
-              <NavLink
-                key={to}
-                to={to}
-                role="menuitem"
-                className={({ isActive }) =>
-                  "flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors " +
-                  (isActive
-                    ? "bg-brand-50 text-brand-600 dark:bg-brand-950/40 dark:text-brand-400"
-                    : "text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800")
-                }
-                onClick={() => setOpen(false)}
-              >
-                <Icon className="h-4 w-4 shrink-0 opacity-70" aria-hidden="true" />
-                {label}
-              </NavLink>
-            ))}
-          </div>
-        </div>
-      )}
+            <motion.div
+              className="py-1 rounded-md border border-slate-200/90 bg-white/95 shadow-lg shadow-slate-200/40 backdrop-blur-sm dark:border-slate-600/80 dark:bg-slate-900/95 dark:shadow-black/30"
+              role="menu"
+              variants={migrationsMenuList}
+              initial="hidden"
+              animate="visible"
+            >
+              {items.map(({ to, label, icon: Icon }) => (
+                <motion.div key={to} variants={migrationsMenuItem}>
+                  <NavLink
+                    to={to}
+                    role="menuitem"
+                    className={({ isActive }) =>
+                      "group flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-all duration-200 ease-out motion-reduce:transform-none " +
+                      (isActive
+                        ? "bg-brand-50 text-brand-600 dark:bg-brand-950/40 dark:text-brand-400"
+                        : "text-slate-700 hover:bg-slate-50/90 hover:translate-x-0.5 dark:text-slate-200 dark:hover:bg-slate-800/80")
+                    }
+                    onClick={() => setOpen(false)}
+                  >
+                    <Icon
+                      className="h-4 w-4 shrink-0 opacity-60 transition-all duration-200 ease-out group-hover:opacity-100"
+                      aria-hidden="true"
+                    />
+                    {label}
+                  </NavLink>
+                </motion.div>
+              ))}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
