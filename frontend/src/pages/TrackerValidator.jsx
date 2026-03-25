@@ -42,7 +42,7 @@ const MOCK_REPORT = {
       "Format error": 3,
     },
   },
-  warnings: ["Sheet 'Local Product Data' not found in this file — skipped."],
+  warnings: [],
   errors: [
     {
       sheet: "Global Product Data",
