@@ -7,7 +7,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   LayoutDashboard,
   CheckSquare,
@@ -15,6 +15,7 @@ import {
   GitMerge,
   GitCompare,
   ClipboardCheck,
+  ChevronDown,
   Sun,
   Moon,
   Keyboard,
@@ -34,18 +35,12 @@ import Migrations from "./pages/Migrations.jsx";
 import DiffViewer from "./pages/DiffViewer.jsx";
 import TrackerValidator from "./pages/TrackerValidator.jsx";
 
-const NAV = [
+const NAV_BASE = [
   {
     to: "/",
     label: "Dashboard",
     icon: LayoutDashboard,
     desc: "Overview of recent validation runs - stats, error trends, and quick access to last results.",
-  },
-  {
-    to: "/validator",
-    label: "Validator",
-    icon: CheckSquare,
-    desc: "Upload and validate migration Excel files for Products, Vendors, or Customers against all business rules.",
   },
   {
     to: "/tracker",
@@ -59,18 +54,39 @@ const NAV = [
     icon: List,
     desc: "Browse and search all List-of-Values from the reference workbook (brands, attribute groups, commodity codes, etc.).",
   },
-  {
-    to: "/migrations",
-    label: "Migrations",
-    icon: GitMerge,
-    desc: "History of all validation runs in this session - re-open any past result without re-uploading.",
-  },
-  {
-    to: "/diff",
-    label: "Diff",
-    icon: GitCompare,
-    desc: "Compare two versions of a migration Excel file side-by-side and highlight row-level changes.",
-  },
+];
+
+const NAV_MIGRATIONS_MENU = {
+  label: "Migrations",
+  icon: GitMerge,
+  items: [
+    {
+      to: "/validator",
+      label: "Validator",
+      icon: CheckSquare,
+      desc: "Upload and validate migration Excel files for Products, Vendors, or Customers against all business rules.",
+    },
+    {
+      to: "/migrations",
+      label: "Migrations",
+      icon: GitMerge,
+      desc: "History of all validation runs in this session - re-open any past result without re-uploading.",
+    },
+    {
+      to: "/diff",
+      label: "Diff",
+      icon: GitCompare,
+      desc: "Compare two versions of a migration Excel file side-by-side and highlight row-level changes.",
+    },
+  ],
+};
+
+/** Flat list for Pages Guide modal (same pages as before, sensible order). */
+const PAGES_GUIDE_ENTRIES = [
+  NAV_BASE[0],
+  ...NAV_MIGRATIONS_MENU.items,
+  NAV_BASE[1],
+  NAV_BASE[2],
 ];
 
 const SHORTCUTS = [
@@ -184,8 +200,8 @@ function PagesGuideModal({ onClose }) {
           </button>
         </div>
         <ul className="space-y-3">
-          {NAV.map(({ label, icon: Icon, desc }) => (
-            <li key={label} className="flex gap-3">
+          {PAGES_GUIDE_ENTRIES.map(({ to, label, icon: Icon, desc }) => (
+            <li key={to} className="flex gap-3">
               <div className="mt-0.5 flex-shrink-0 h-6 w-6 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
                 <Icon className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
               </div>
@@ -304,6 +320,96 @@ function NavItem({ to, label, Icon }) {
   );
 }
 
+function NavMigrationsDropdown({ items }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+  const location = useLocation();
+  const MenuIcon = NAV_MIGRATIONS_MENU.icon;
+
+  const childActive = items.some(
+    (item) =>
+      item.to === "/"
+        ? location.pathname === "/"
+        : location.pathname === item.to ||
+          location.pathname.startsWith(`${item.to}/`),
+  );
+
+  useEffect(() => {
+    const onDoc = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  useEffect(() => {
+    setOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  return (
+    <div className="relative flex h-16 items-stretch" ref={wrapRef}>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label={`${NAV_MIGRATIONS_MENU.label} menu`}
+        onClick={() => setOpen((v) => !v)}
+        className={
+          "flex items-center gap-2 px-4 py-2 text-base font-medium border-b-2 transition-colors " +
+          (open || childActive
+            ? "border-brand-500 text-brand-500 dark:text-brand-400"
+            : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200")
+        }
+      >
+        <MenuIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+        {NAV_MIGRATIONS_MENU.label}
+        <ChevronDown
+          className={
+            "h-4 w-4 shrink-0 opacity-70 transition-transform " +
+            (open ? "rotate-180" : "")
+          }
+          aria-hidden="true"
+        />
+      </button>
+      {open && (
+        <div
+          className="absolute left-0 top-full z-50 min-w-[14rem] py-1 rounded-md border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900"
+          role="menu"
+        >
+          {items.map(({ to, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              role="menuitem"
+              className={({ isActive }) =>
+                "flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors " +
+                (isActive
+                  ? "bg-brand-50 text-brand-600 dark:bg-brand-950/40 dark:text-brand-400"
+                  : "text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800")
+              }
+              onClick={() => setOpen(false)}
+            >
+              <Icon className="h-4 w-4 shrink-0 opacity-70" aria-hidden="true" />
+              {label}
+            </NavLink>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AnimatedRoutes() {
   const location = useLocation();
   return (
@@ -352,8 +458,9 @@ function AppInner() {
 
   if (!role) return <LoginScreen />;
 
-  const visibleNav =
-    role === "market" ? NAV.filter(({ to }) => MARKET_ALLOWED.has(to)) : NAV;
+  const marketNavItems = NAV_BASE.filter(({ to }) =>
+    MARKET_ALLOWED.has(to),
+  );
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
@@ -379,9 +486,23 @@ function AppInner() {
             role="navigation"
             aria-label="Main navigation"
           >
-            {visibleNav.map(({ to, label, icon: Icon }) => (
-              <NavItem key={to} to={to} label={label} Icon={Icon} />
-            ))}
+            {role === "market" ? (
+              marketNavItems.map(({ to, label, icon: Icon }) => (
+                <NavItem key={to} to={to} label={label} Icon={Icon} />
+              ))
+            ) : (
+              <>
+                <NavItem
+                  to={NAV_BASE[0].to}
+                  label={NAV_BASE[0].label}
+                  Icon={NAV_BASE[0].icon}
+                />
+                <NavMigrationsDropdown items={NAV_MIGRATIONS_MENU.items} />
+                {NAV_BASE.slice(1).map(({ to, label, icon: Icon }) => (
+                  <NavItem key={to} to={to} label={label} Icon={Icon} />
+                ))}
+              </>
+            )}
           </nav>
 
           {/* Right side: LOV search trigger + guide + shortcuts + theme */}
