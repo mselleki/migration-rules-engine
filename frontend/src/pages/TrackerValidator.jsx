@@ -243,6 +243,296 @@ const MOCK_REPORT = {
       ],
     },
   ],
+  rows: [
+    {
+      sheet: "Global Product Data",
+      data: [
+        {
+          SUPC: "7821043",
+          "Global Product Description": "FROMAGE BLANC NATURE 3KG",
+          Brand: "MONOPRIX",
+          "Case Pack": "6",
+          "Case UOM": "EA",
+          "Product Status": "Active",
+          "OSD Hierarchy": "DAIRY|FRESH CHEESE",
+          "Case Gross Weight (kg)": "3.25",
+          Almonds: "N",
+          "Milk and products thereof": "Y",
+          Halal: "",
+          "Marketing Description": "",
+        },
+        {
+          SUPC: "7834201",
+          "Global Product Description": "",
+          Brand: "BRAKES",
+          "Case Pack": "12",
+          "Case UOM": "EA",
+          "Product Status": "Active",
+          "OSD Hierarchy": "",
+          "Case Gross Weight (kg)": "5.10",
+          Almonds: "N",
+          "Milk and products thereof": "N",
+          Halal: "N",
+          "Marketing Description": "Premium chicken breast fillets",
+        },
+        {
+          SUPC: "7867554",
+          "Global Product Description": "HUILE OLIVE 5L",
+          Brand: "SYSCO",
+          "Case Pack": "4",
+          "Case UOM": "BOITE",
+          "Product Status": "Active",
+          "OSD Hierarchy": "GROCERY|OILS",
+          "Case Gross Weight (kg)": "5.80",
+          Almonds: "N",
+          "Milk and products thereof": "N",
+          Halal: "Y",
+          "Marketing Description": "Extra virgin olive oil",
+        },
+        {
+          SUPC: "7889012",
+          "Global Product Description": "POULET ROTI 1.2KG",
+          Brand: "BRAKES",
+          "Case Pack": "",
+          "Case UOM": "EA",
+          "Product Status": "Active",
+          "OSD Hierarchy": "POULTRY|COOKED",
+          "Case Gross Weight (kg)": "7.20",
+          Almonds: "N",
+          "Milk and products thereof": "N",
+          Halal: "N",
+          "Marketing Description": "",
+        },
+        {
+          SUPC: "7802341",
+          "Global Product Description": "SAUMON FUME TRANCHE 200G",
+          Brand: "SYSCO",
+          "Case Pack": "10",
+          "Case UOM": "EA",
+          "Product Status": "Active",
+          "OSD Hierarchy": "FISH|SMOKED",
+          "Case Gross Weight (kg)": "abc",
+          Almonds: "N",
+          "Milk and products thereof": "N",
+          Halal: "N",
+          "Marketing Description": "Smoked Atlantic salmon",
+        },
+        {
+          SUPC: "7845678",
+          "Global Product Description": "TOMATES CERISES 500G",
+          Brand: "BRAKES",
+          "Case Pack": "20",
+          "Case UOM": "EA",
+          "Product Status": "OBSOLETE",
+          "OSD Hierarchy": "PRODUCE|TOMATOES",
+          "Case Gross Weight (kg)": "11.0",
+          Almonds: "N",
+          "Milk and products thereof": "N",
+          Halal: "N",
+          "Marketing Description": "",
+        },
+        {
+          SUPC: "7878901",
+          "Global Product Description": "",
+          Brand: "SYSCO",
+          "Case Pack": "6",
+          "Case UOM": "EA",
+          "Product Status": "Active",
+          "OSD Hierarchy": "DAIRY|BUTTER",
+          "Case Gross Weight (kg)": "3.00",
+          Almonds: "N",
+          "Milk and products thereof": "Y",
+          Halal: "",
+          "Marketing Description": "",
+        },
+        {
+          SUPC: "7803456",
+          "Global Product Description": "BEURRE DOUX 500G",
+          Brand: "YES",
+          "Case Pack": "20",
+          "Case UOM": "EA",
+          "Product Status": "Active",
+          "OSD Hierarchy": "DAIRY|BUTTER",
+          "Case Gross Weight (kg)": "10.5",
+          Almonds: "N",
+          "Milk and products thereof": "Y",
+          Halal: "N",
+          "Marketing Description": "Fine French butter",
+        },
+        {
+          SUPC: "7821987",
+          "Global Product Description": "PAIN DE MIE BLANC 500G",
+          Brand: "BRAKES",
+          "Case Pack": "12",
+          "Case UOM": "EA",
+          "Product Status": "Active",
+          "OSD Hierarchy": "BAKERY|BREAD",
+          "Case Gross Weight (kg)": "6.50",
+          Almonds: "N",
+          "Milk and products thereof": "Y",
+          Halal: "N",
+          "Marketing Description": "",
+        },
+        {
+          SUPC: "7856123",
+          "Global Product Description": "ESCALOPE POULET 150G",
+          Brand: "SYSCO",
+          "Case Pack": "8",
+          "Case UOM": "EA",
+          "Product Status": "Active",
+          "OSD Hierarchy": "POULTRY|RAW",
+          "Case Gross Weight (kg)": "1.20",
+          Almonds: "N",
+          "Milk and products thereof": "N",
+          Halal: "OUI",
+          "Marketing Description": "",
+        },
+        {
+          SUPC: "7812654",
+          "Global Product Description": "COMTÉ AOP 200G",
+          Brand: "SYSCO",
+          "Case Pack": "24",
+          "Case UOM": "EA",
+          "Product Status": "Active",
+          "OSD Hierarchy": "DAIRY|CHEESE",
+          "Case Gross Weight (kg)": "5.00",
+          Almonds: "N",
+          "Milk and products thereof": "Y",
+          Halal: "N",
+          "Marketing Description": "Aged Comté AOP 18 months",
+        },
+        {
+          SUPC: "7878432",
+          "Global Product Description": "POISSON PANÉ 100G",
+          Brand: "BRAKES",
+          "Case Pack": "20",
+          "Case UOM": "EA",
+          "Product Status": "Active",
+          "OSD Hierarchy": "FISH|BREADED",
+          "Case Gross Weight (kg)": "2.10",
+          Almonds: "N",
+          "Milk and products thereof": "Y",
+          Halal: "SURGELE",
+          "Marketing Description": "",
+        },
+        {
+          SUPC: "7801234",
+          "Global Product Description": "CRÈME FRAÎCHE 200ML",
+          Brand: "SYSCO",
+          "Case Pack": "6",
+          "Case UOM": "EA",
+          "Product Status": "Active",
+          "OSD Hierarchy": "DAIRY|CREAM",
+          "Case Gross Weight (kg)": "-0.5",
+          Almonds: "N",
+          "Milk and products thereof": "Y",
+          Halal: "N",
+          "Marketing Description": "",
+        },
+        {
+          SUPC: "7845901",
+          "Global Product Description": "FRITES SURGELÉES 2.5KG",
+          Brand: "BRAKES",
+          "Case Pack": "4",
+          "Case UOM": "EA",
+          "Product Status": "Active",
+          "OSD Hierarchy": "POTATO|FROZEN",
+          "Case Gross Weight (kg)": "10.2",
+          Almonds: "N",
+          "Milk and products thereof": "N",
+          Halal: "N",
+          "Marketing Description": "Classic straight-cut fries",
+          "Biodegradable or Compostable": "MAYBE",
+        },
+        {
+          SUPC: "7801567",
+          "Global Product Description": "RISOTTO MILANAIS 2KG",
+          Brand: "SYSCO",
+          "Case Pack": "6",
+          "Case UOM": "EA",
+          "Product Status": "Active",
+          "OSD Hierarchy": "GROCERY|RICE",
+          "Case Gross Weight (kg)": "12.5",
+          Almonds: "N",
+          "Milk and products thereof": "Y",
+          Halal: "N",
+          "Marketing Description": "Traditional Milanese risotto",
+        },
+        {
+          SUPC: "7834890",
+          "Global Product Description": "HARICOTS VERTS EXTRA FIN 1KG",
+          Brand: "BRAKES",
+          "Case Pack": "10",
+          "Case UOM": "EA",
+          "Product Status": "Active",
+          "OSD Hierarchy": "VEGETABLE|BEANS",
+          "Case Gross Weight (kg)": "10.3",
+          Almonds: "N",
+          "Milk and products thereof": "N",
+          Halal: "N",
+          "Marketing Description": "",
+          Recyclable: "OUI",
+        },
+        {
+          SUPC: "7812345",
+          "Global Product Description": "SAUCE BÉCHAMEL 1L",
+          Brand: "SYSCO",
+          "Case Pack": "12",
+          "Case UOM": "EA",
+          "Product Status": "Active",
+          "OSD Hierarchy": "GROCERY|SAUCES",
+          "Case Gross Weight (kg)": "13.2",
+          Almonds: "N",
+          "Milk and products thereof": "Y",
+          Halal: "N",
+          "Marketing Description": "Classic béchamel",
+          "Split Product": "MAYBE",
+        },
+        {
+          SUPC: "7889765",
+          "Global Product Description": "MOZZARELLA DI BUFALA 125G",
+          Brand: "SYSCO",
+          "Case Pack": "24",
+          "Case UOM": "EA",
+          "Product Status": "Active",
+          "OSD Hierarchy": "DAIRY|CHEESE",
+          "Case Gross Weight (kg)": "3.10",
+          Almonds: "N",
+          "Milk and products thereof": "Y",
+          Halal: "N",
+          "Marketing Description": "Buffalo mozzarella DOP",
+        },
+        {
+          SUPC: "7856789",
+          "Global Product Description": "CABILLAUD MSC FILET 180G",
+          Brand: "BRAKES",
+          "Case Pack": "10",
+          "Case UOM": "EA",
+          "Product Status": "Active",
+          "OSD Hierarchy": "FISH|WHITE",
+          "Case Gross Weight (kg)": "1.90",
+          Almonds: "N",
+          "Milk and products thereof": "N",
+          Halal: "N",
+          "Marketing Description": "MSC certified cod fillet",
+        },
+        {
+          SUPC: "7823456",
+          "Global Product Description": "JAMBON BLANC SUPÉRIEUR 4KG",
+          Brand: "SYSCO",
+          "Case Pack": "2",
+          "Case UOM": "EA",
+          "Product Status": "Active",
+          "OSD Hierarchy": "CHARCUTERIE|HAM",
+          "Case Gross Weight (kg)": "8.80",
+          Almonds: "N",
+          "Milk and products thereof": "N",
+          Halal: "N",
+          "Marketing Description": "Premium cooked ham",
+        },
+      ],
+    },
+  ],
 };
 
 function fmtBytes(b) {
@@ -662,6 +952,197 @@ function CompletionPanel({ completion }) {
   );
 }
 
+// --- Data Grid ---
+
+function DataGridPanel({ rows, errors }) {
+  const [idFilter, setIdFilter] = useState("");
+  const [colFilter, setColFilter] = useState("");
+  const [activeSheet, setActiveSheet] = useState(0);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 50;
+
+  const sheetData = rows?.[activeSheet] ?? null;
+  const allData = sheetData?.data ?? [];
+  const allCols = allData.length > 0 ? Object.keys(allData[0]) : [];
+  const idCol = allCols[0] ?? "SUPC";
+
+  const errorIds = useMemo(
+    () => new Set(errors?.map((e) => String(e.supc)) ?? []),
+    [errors],
+  );
+
+  const visibleCols = useMemo(
+    () =>
+      colFilter.trim()
+        ? allCols.filter((c) =>
+            c.toLowerCase().includes(colFilter.toLowerCase()),
+          )
+        : allCols,
+    [allCols, colFilter],
+  );
+
+  const filteredRows = useMemo(() => {
+    const q = idFilter.trim().toLowerCase();
+    return q
+      ? allData.filter((r) =>
+          String(r[idCol] ?? "")
+            .toLowerCase()
+            .includes(q),
+        )
+      : allData;
+  }, [allData, idFilter, idCol]);
+
+  const pageCount = Math.ceil(filteredRows.length / PAGE_SIZE);
+  const pageRows = filteredRows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  if (!rows?.length) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+            Data Overview
+          </span>
+          <span className="text-xs text-slate-400 tabular-nums">
+            {filteredRows.length} rows · {visibleCols.length} columns
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {/* Sheet tabs */}
+        {rows.length > 1 && (
+          <div className="flex gap-1 flex-wrap">
+            {rows.map((s, i) => (
+              <button
+                key={s.sheet}
+                onClick={() => {
+                  setActiveSheet(i);
+                  setPage(0);
+                }}
+                className={`px-2.5 py-1 text-xs rounded-md transition-colors ${
+                  activeSheet === i
+                    ? "bg-brand-500 text-white"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                }`}
+              >
+                {s.sheet}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Filters */}
+        <div className="flex gap-2 flex-wrap">
+          <input
+            type="text"
+            placeholder={`Filter by ${idCol}…`}
+            value={idFilter}
+            onChange={(e) => {
+              setIdFilter(e.target.value);
+              setPage(0);
+            }}
+            className="text-sm border border-slate-200 dark:border-slate-700 rounded-md px-2.5 py-1.5 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-brand-500 focus:outline-none w-44 dark:text-slate-100"
+          />
+          <input
+            type="text"
+            placeholder="Filter columns…"
+            value={colFilter}
+            onChange={(e) => setColFilter(e.target.value)}
+            className="text-sm border border-slate-200 dark:border-slate-700 rounded-md px-2.5 py-1.5 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-brand-500 focus:outline-none w-44 dark:text-slate-100"
+          />
+        </div>
+
+        {/* Table */}
+        <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-800">
+          <table
+            className="text-xs border-collapse"
+            style={{ minWidth: "max-content" }}
+          >
+            <thead>
+              <tr className="bg-slate-50 dark:bg-slate-800/60">
+                {visibleCols.map((col, i) => (
+                  <th
+                    key={col}
+                    className={`px-3 py-2 text-left font-medium text-slate-500 whitespace-nowrap border-b border-slate-200 dark:border-slate-700 ${
+                      i === 0
+                        ? "sticky left-0 z-10 bg-slate-50 dark:bg-slate-800 shadow-[1px_0_0_0_rgba(0,0,0,0.08)]"
+                        : ""
+                    }`}
+                  >
+                    {col}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {pageRows.map((row, ri) => {
+                const hasError = errorIds.has(String(row[idCol]));
+                const rowBg = hasError
+                  ? "bg-red-50 dark:bg-red-900/10"
+                  : ri % 2 === 0
+                    ? "bg-white dark:bg-slate-900"
+                    : "bg-slate-50/50 dark:bg-slate-800/20";
+                return (
+                  <tr key={ri} className={rowBg}>
+                    {visibleCols.map((col, i) => {
+                      const val = row[col];
+                      const isEmpty = val === "" || val == null;
+                      return (
+                        <td
+                          key={col}
+                          title={String(val ?? "")}
+                          className={[
+                            "px-3 py-1.5 border-b border-slate-100 dark:border-slate-800 whitespace-nowrap max-w-[200px] truncate",
+                            i === 0
+                              ? `sticky left-0 z-10 font-mono font-medium shadow-[1px_0_0_0_rgba(0,0,0,0.08)] ${rowBg}`
+                              : isEmpty
+                                ? "text-slate-300 dark:text-slate-600"
+                                : "text-slate-700 dark:text-slate-300",
+                          ].join(" ")}
+                        >
+                          {isEmpty ? "—" : String(val)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {pageCount > 1 && (
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-slate-400">
+              Page {page + 1} / {pageCount}
+            </span>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage((p) => p - 1)}
+                disabled={page === 0}
+              >
+                Prev
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage((p) => p + 1)}
+                disabled={page >= pageCount - 1}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // --- Helpers ---
 
 function timeAgo(ts) {
@@ -737,6 +1218,11 @@ function ResultsBlock({ report, error }) {
           {/* Completion analysis */}
           {report.completion?.length > 0 && (
             <CompletionPanel completion={report.completion} />
+          )}
+
+          {/* Data overview grid */}
+          {report.rows?.length > 0 && (
+            <DataGridPanel rows={report.rows} errors={report.errors} />
           )}
 
           {/* Errors by rule */}
@@ -880,188 +1366,160 @@ export default function TrackerValidator() {
   }
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-            Tracker Dashboard
-          </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            P1 Data Cleansing — live from SharePoint
-          </p>
+    <div className="space-y-4">
+      {/* Compact top bar */}
+      <div className="flex items-center gap-3 flex-wrap border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 bg-white dark:bg-slate-900">
+        <h1 className="text-sm font-semibold text-slate-800 dark:text-slate-100 mr-1">
+          Tracker Dashboard
+        </h1>
+        <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
+        <Select
+          value={domain}
+          onValueChange={(d) => {
+            setDomain(d);
+            setFile(null);
+            setUploadReport(null);
+            setUploadError(null);
+          }}
+        >
+          <SelectTrigger
+            aria-label="Select domain"
+            className="h-7 text-xs w-32"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DOMAINS.map((d) => (
+              <SelectItem key={d} value={d}>
+                {d}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="flex items-center gap-1.5 text-xs text-slate-400">
+          <span
+            className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${isConfigured ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600"}`}
+          />
+          {isConfigured
+            ? updatedAt
+              ? `Updated ${timeAgo(updatedAt)}`
+              : "Connected"
+            : "Not configured"}
         </div>
+        <div className="flex-1" />
+        <button
+          onClick={() => setMockMode((v) => !v)}
+          className={`text-xs px-2.5 py-1 rounded-md border transition-colors ${
+            mockMode
+              ? "border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:border-amber-700 dark:text-amber-400"
+              : "border-slate-200 dark:border-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+          }`}
+        >
+          {mockMode ? "✕ Mock" : "Preview mock"}
+        </button>
         {isConfigured && (
           <Button
             onClick={handleRefresh}
             disabled={refreshing}
             variant="outline"
             size="sm"
-            className="flex items-center gap-1.5 flex-shrink-0"
+            className="h-7 text-xs flex items-center gap-1.5 flex-shrink-0"
           >
             <RefreshCw
-              className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
+              className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`}
             />
-            {refreshing ? "Updating…" : "Update dashboard"}
+            {refreshing ? "Updating…" : "Update"}
           </Button>
         )}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 items-start">
-        {/* Left panel */}
-        <Card className="xl:col-span-1">
-          <CardHeader>
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
-              Domain
-            </span>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Select
-              value={domain}
-              onValueChange={(d) => {
-                setDomain(d);
-                setFile(null);
-                setUploadReport(null);
-                setUploadError(null);
-              }}
-            >
-              <SelectTrigger aria-label="Select domain">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DOMAINS.map((d) => (
-                  <SelectItem key={d} value={d}>
-                    {d}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Status */}
-            {isConfigured ? (
-              <div className="space-y-1 text-xs text-slate-400">
-                <div className="flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
-                  <span>Connected to SharePoint</span>
-                </div>
-                {updatedAt && (
-                  <p className="pl-3">Last updated {timeAgo(updatedAt)}</p>
-                )}
-                {!cached && !refreshing && (
-                  <p className="pl-3 text-slate-400">
-                    No data yet —{" "}
-                    <button
-                      onClick={handleRefresh}
-                      className="text-brand-500 hover:underline"
-                    >
-                      load now
-                    </button>
-                  </p>
-                )}
+      {/* Upload fallback — shown inline when domain not configured */}
+      {!isConfigured && !mockMode && (
+        <div className="flex items-end gap-3 flex-wrap">
+          <div className="flex-1 min-w-[240px] max-w-sm">
+            <p className="text-xs text-slate-400 mb-2">
+              No SharePoint URL configured. Upload a tracker file or set{" "}
+              <code className="px-1 py-px rounded bg-slate-100 dark:bg-slate-800 text-[10px]">
+                TRACKER_URL_{domain.toUpperCase()}
+              </code>{" "}
+              in Railway.
+            </p>
+            <form onSubmit={handleUpload} className="flex gap-2 items-start">
+              <div className="flex-1">
+                <FileDropZone
+                  label="Tracker file (.xlsx / .xlsb)"
+                  file={file}
+                  onFile={setFile}
+                />
               </div>
-            ) : (
-              <div className="space-y-3">
-                <p className="text-xs text-slate-400">
-                  No SharePoint URL configured for this domain. Upload a file
-                  manually or ask your admin to set{" "}
-                  <code className="px-1 py-px rounded bg-slate-100 dark:bg-slate-800 text-[10px]">
-                    TRACKER_URL_{domain.toUpperCase()}
-                  </code>{" "}
-                  in Railway.
-                </p>
-                <form onSubmit={handleUpload} className="space-y-3">
-                  <FileDropZone
-                    label="Tracker file (.xlsx / .xlsb)"
-                    file={file}
-                    onFile={setFile}
-                  />
-                  <Button
-                    type="submit"
-                    disabled={!file || uploading}
-                    className="w-full"
-                    size="md"
-                  >
-                    {uploading ? (
-                      <>
-                        <span className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />{" "}
-                        Validating…
-                      </>
-                    ) : (
-                      "Run Validation"
-                    )}
-                  </Button>
-                </form>
+              <Button
+                type="submit"
+                disabled={!file || uploading}
+                size="sm"
+                className="flex-shrink-0 mt-0.5"
+              >
+                {uploading ? (
+                  <>
+                    <span className="h-3 w-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />{" "}
+                    Validating…
+                  </>
+                ) : (
+                  "Validate"
+                )}
+              </Button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Results — full width */}
+      <div>
+        {mockMode && (
+          <div>
+            <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 mb-3">
+              <span className="px-1.5 py-px rounded bg-amber-100 dark:bg-amber-900/30 font-medium text-[10px] uppercase tracking-wide">
+                Mock
+              </span>
+              <span>Sample data — not connected to SharePoint</span>
+            </div>
+            <ResultsBlock report={MOCK_REPORT} error={null} />
+          </div>
+        )}
+
+        {!mockMode && refreshing && !cached && (
+          <div className="flex items-center justify-center h-40 text-slate-400 text-sm gap-2">
+            <RefreshCw className="h-4 w-4 animate-spin" />
+            Fetching from SharePoint…
+          </div>
+        )}
+
+        {!mockMode && (report || cacheError) && (
+          <div>
+            {cached?.report?.source?.filename && (
+              <div className="flex items-center gap-2 text-xs text-slate-400 mb-3">
+                <FileSpreadsheet className="h-3.5 w-3.5 flex-shrink-0" />
+                <span className="truncate">
+                  {cached.report.source.filename}
+                </span>
+                <span className="text-slate-300 dark:text-slate-600">·</span>
+                <span className="text-emerald-500">SharePoint</span>
+                {updatedAt && (
+                  <>
+                    <span className="text-slate-300 dark:text-slate-600">
+                      ·
+                    </span>
+                    <span>{timeAgo(updatedAt)}</span>
+                  </>
+                )}
               </div>
             )}
+            <ResultsBlock report={report} error={cacheError} />
+          </div>
+        )}
 
-            {/* Preview mock button */}
-            <div className="border-t border-slate-100 dark:border-slate-800 pt-3">
-              <button
-                onClick={() => setMockMode((v) => !v)}
-                className={`w-full text-xs py-1.5 rounded-md border transition-colors ${
-                  mockMode
-                    ? "border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:border-amber-700 dark:text-amber-400"
-                    : "border-slate-200 dark:border-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:border-slate-300"
-                }`}
-              >
-                {mockMode ? "✕ Hide preview" : "Preview with mock data"}
-              </button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Results */}
-        <div className="xl:col-span-2">
-          {/* Mock preview */}
-          {mockMode && (
-            <div>
-              <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 mb-3">
-                <span className="px-1.5 py-px rounded bg-amber-100 dark:bg-amber-900/30 font-medium text-[10px] uppercase tracking-wide">
-                  Mock
-                </span>
-                <span>Sample data — not connected to SharePoint</span>
-              </div>
-              <ResultsBlock report={MOCK_REPORT} error={null} />
-            </div>
-          )}
-
-          {!mockMode && refreshing && !cached && (
-            <div className="flex items-center justify-center h-40 text-slate-400 text-sm gap-2">
-              <RefreshCw className="h-4 w-4 animate-spin" />
-              Fetching from SharePoint…
-            </div>
-          )}
-
-          {/* Cached SharePoint results */}
-          {!mockMode && (report || cacheError) && (
-            <div>
-              {cached?.report?.source?.filename && (
-                <div className="flex items-center gap-2 text-xs text-slate-400 mb-3">
-                  <FileSpreadsheet className="h-3.5 w-3.5 flex-shrink-0" />
-                  <span className="truncate">
-                    {cached.report.source.filename}
-                  </span>
-                  <span className="text-slate-300 dark:text-slate-600">·</span>
-                  <span className="text-emerald-500">SharePoint</span>
-                  {updatedAt && (
-                    <>
-                      <span className="text-slate-300 dark:text-slate-600">
-                        ·
-                      </span>
-                      <span>{timeAgo(updatedAt)}</span>
-                    </>
-                  )}
-                </div>
-              )}
-              <ResultsBlock report={report} error={cacheError} />
-            </div>
-          )}
-
-          {/* Upload fallback results */}
-          {!mockMode && (uploadReport || uploadError) && !isConfigured && (
-            <ResultsBlock report={uploadReport} error={uploadError} />
-          )}
-        </div>
+        {!mockMode && (uploadReport || uploadError) && !isConfigured && (
+          <ResultsBlock report={uploadReport} error={uploadError} />
+        )}
       </div>
     </div>
   );
