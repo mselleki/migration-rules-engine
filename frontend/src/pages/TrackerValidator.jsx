@@ -29,6 +29,222 @@ import API from "../api.js";
 
 const DOMAINS = ["Products", "Vendors", "Customers"];
 
+// ---------------------------------------------------------------------------
+// Mock data — preview only, never sent to the API
+// ---------------------------------------------------------------------------
+const MOCK_REPORT = {
+  summary: {
+    total_rows: 847,
+    total_errors: 18,
+    errors_by_rule: {
+      "LOV — invalid value": 9,
+      "Required field missing": 6,
+      "Format error": 3,
+    },
+  },
+  warnings: ["Sheet 'Local Product Data' not found in this file — skipped."],
+  errors: [
+    {
+      sheet: "Global Product Data",
+      row: 12,
+      supc: "7821043",
+      rule: "LOV — invalid value",
+      message: "Brand 'MONOPRIX' is not a recognised value.",
+    },
+    {
+      sheet: "Global Product Data",
+      row: 34,
+      supc: "7834201",
+      rule: "Required field missing",
+      message: "OSD Hierarchy is required but empty.",
+    },
+    {
+      sheet: "Global Product Data",
+      row: 67,
+      supc: "7867554",
+      rule: "LOV — invalid value",
+      message: "Case UOM 'BOITE' is not a recognised value.",
+    },
+    {
+      sheet: "Global Product Data",
+      row: 89,
+      supc: "7889012",
+      rule: "Required field missing",
+      message: "Case Pack is required but empty.",
+    },
+    {
+      sheet: "Global Product Data",
+      row: 102,
+      supc: "7802341",
+      rule: "Format error",
+      message: "Case Gross Weight (kg) must be a positive number.",
+    },
+    {
+      sheet: "Global Product Data",
+      row: 145,
+      supc: "7845678",
+      rule: "LOV — invalid value",
+      message: "Product Status 'OBSOLETE' is not a recognised value.",
+    },
+    {
+      sheet: "Global Product Data",
+      row: 178,
+      supc: "7878901",
+      rule: "Required field missing",
+      message: "Global Product Description is required but empty.",
+    },
+    {
+      sheet: "Global Product Data",
+      row: 203,
+      supc: "7803456",
+      rule: "LOV — invalid value",
+      message: "Sysco Brand 'YES' is not a recognised value. Expected Y or N.",
+    },
+    {
+      sheet: "Global Product Data",
+      row: 221,
+      supc: "7821987",
+      rule: "Format error",
+      message: "GTIN Outer must be exactly 14 digits.",
+    },
+    {
+      sheet: "Global Product Data",
+      row: 256,
+      supc: "7856123",
+      rule: "LOV — invalid value",
+      message: "Catch Weight 'OUI' is not a recognised value. Expected Y or N.",
+    },
+    {
+      sheet: "Global Product Data",
+      row: 312,
+      supc: "7812654",
+      rule: "Required field missing",
+      message: "Legal Entity is required but empty.",
+    },
+    {
+      sheet: "Global Product Data",
+      row: 378,
+      supc: "7878432",
+      rule: "LOV — invalid value",
+      message: "Storage Area 'SURGELE' is not a recognised value.",
+    },
+    {
+      sheet: "Global Product Data",
+      row: 401,
+      supc: "7801234",
+      rule: "Format error",
+      message: "Case Net Weight (kg) must be a positive number.",
+    },
+    {
+      sheet: "Global Product Data",
+      row: 445,
+      supc: "7845901",
+      rule: "LOV — invalid value",
+      message:
+        "Biodegradable or Compostable 'MAYBE' is not a recognised value.",
+    },
+    {
+      sheet: "Global Product Data",
+      row: 501,
+      supc: "7801567",
+      rule: "Required field missing",
+      message: "Default Vendor is required but empty.",
+    },
+    {
+      sheet: "Global Product Data",
+      row: 534,
+      supc: "7834890",
+      rule: "LOV — invalid value",
+      message: "Recyclable 'OUI' is not a recognised value. Expected Y or N.",
+    },
+    {
+      sheet: "Global Product Data",
+      row: 612,
+      supc: "7812345",
+      rule: "LOV — invalid value",
+      message:
+        "Split Product 'MAYBE' is not a recognised value. Expected Y or N.",
+    },
+    {
+      sheet: "Global Product Data",
+      row: 789,
+      supc: "7889765",
+      rule: "Required field missing",
+      message: "Vendor Product Code is required but empty.",
+    },
+  ],
+  completion: [
+    {
+      sheet: "Global Product Data",
+      total_rows: 847,
+      columns: [
+        { attribute: "SUPC", filled: 847, rate: 1.0 },
+        { attribute: "Global Product Description", filled: 840, rate: 0.992 },
+        { attribute: "Legal Entity", filled: 846, rate: 0.999 },
+        { attribute: "OSD Hierarchy", filled: 841, rate: 0.993 },
+        { attribute: "Sysco Brand", filled: 847, rate: 1.0 },
+        { attribute: "Brand", filled: 823, rate: 0.972 },
+        { attribute: "GTIN Outer", filled: 756, rate: 0.893 },
+        { attribute: "GTIN Inner", filled: 612, rate: 0.723 },
+        { attribute: "Vendor Product Code", filled: 839, rate: 0.991 },
+        { attribute: "Default Vendor", filled: 843, rate: 0.995 },
+        { attribute: "Case Pack", filled: 847, rate: 1.0 },
+        { attribute: "Case Size", filled: 847, rate: 1.0 },
+        { attribute: "Case UOM", filled: 847, rate: 1.0 },
+        { attribute: "Product Status", filled: 844, rate: 0.997 },
+        { attribute: "Proprietary Product", filled: 731, rate: 0.863 },
+        { attribute: "Split Product", filled: 698, rate: 0.824 },
+        { attribute: "Case Length (cm)", filled: 634, rate: 0.749 },
+        { attribute: "Case Width (cm)", filled: 631, rate: 0.745 },
+        { attribute: "Case Height (cm)", filled: 628, rate: 0.741 },
+        { attribute: "Case Gross Weight (kg)", filled: 521, rate: 0.615 },
+        { attribute: "Case Net Weight (kg)", filled: 498, rate: 0.588 },
+        { attribute: "Catch Weight", filled: 612, rate: 0.723 },
+        { attribute: "Almonds", filled: 423, rate: 0.499 },
+        { attribute: "Milk and products thereof", filled: 418, rate: 0.494 },
+        { attribute: "Gluten at > 20 ppm", filled: 415, rate: 0.49 },
+        { attribute: "Dairy Free", filled: 389, rate: 0.459 },
+        { attribute: "Halal", filled: 401, rate: 0.474 },
+        { attribute: "Marketing Description", filled: 312, rate: 0.368 },
+        { attribute: "Invoice Description", filled: 345, rate: 0.407 },
+        { attribute: "Ecom Description", filled: 198, rate: 0.234 },
+        { attribute: "Commodity Code", filled: 287, rate: 0.339 },
+        { attribute: "Storage Guidelines", filled: 142, rate: 0.168 },
+        { attribute: "Cooking Instructions", filled: 87, rate: 0.103 },
+        {
+          attribute: "Product Country of Origin - Manufactured",
+          filled: 412,
+          rate: 0.487,
+        },
+        {
+          attribute: "Shelf Life Period in days (Customer)",
+          filled: 356,
+          rate: 0.42,
+        },
+        { attribute: "Ecom Category Hierarchy", filled: 134, rate: 0.158 },
+        { attribute: "Latin Fish Name", filled: 34, rate: 0.04 },
+        { attribute: "MSC Chain of Custody Number", filled: 21, rate: 0.025 },
+      ],
+    },
+    {
+      sheet: "Local Product Data",
+      total_rows: 847,
+      columns: [
+        { attribute: "SUPC", filled: 847, rate: 1.0 },
+        { attribute: "Description", filled: 843, rate: 0.995 },
+        { attribute: "Case Pack", filled: 847, rate: 1.0 },
+        { attribute: "Case UOM", filled: 847, rate: 1.0 },
+        { attribute: "Split Pack", filled: 523, rate: 0.618 },
+        { attribute: "Split UOM", filled: 519, rate: 0.613 },
+        { attribute: "Nominal Quantity", filled: 412, rate: 0.487 },
+        { attribute: "Item Group", filled: 387, rate: 0.457 },
+        { attribute: "Cost Centre", filled: 201, rate: 0.237 },
+        { attribute: "Item Vat - Selling", filled: 634, rate: 0.749 },
+      ],
+    },
+  ],
+};
+
 function fmtBytes(b) {
   if (!b) return "";
   if (b < 1024) return `${b} B`;
@@ -593,6 +809,7 @@ export default function TrackerValidator() {
   const [domain, setDomain] = useState("Products");
   const [dashboard, setDashboard] = useState(null); // { Products: {configured, cached}, ... }
   const [refreshing, setRefreshing] = useState(false);
+  const [mockMode, setMockMode] = useState(false);
   // Upload fallback
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -776,12 +993,39 @@ export default function TrackerValidator() {
                 </form>
               </div>
             )}
+
+            {/* Preview mock button */}
+            <div className="border-t border-slate-100 dark:border-slate-800 pt-3">
+              <button
+                onClick={() => setMockMode((v) => !v)}
+                className={`w-full text-xs py-1.5 rounded-md border transition-colors ${
+                  mockMode
+                    ? "border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:border-amber-700 dark:text-amber-400"
+                    : "border-slate-200 dark:border-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:border-slate-300"
+                }`}
+              >
+                {mockMode ? "✕ Hide preview" : "Preview with mock data"}
+              </button>
+            </div>
           </CardContent>
         </Card>
 
         {/* Results */}
         <div className="xl:col-span-2">
-          {refreshing && !cached && (
+          {/* Mock preview */}
+          {mockMode && (
+            <div>
+              <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 mb-3">
+                <span className="px-1.5 py-px rounded bg-amber-100 dark:bg-amber-900/30 font-medium text-[10px] uppercase tracking-wide">
+                  Mock
+                </span>
+                <span>Sample data — not connected to SharePoint</span>
+              </div>
+              <ResultsBlock report={MOCK_REPORT} error={null} />
+            </div>
+          )}
+
+          {!mockMode && refreshing && !cached && (
             <div className="flex items-center justify-center h-40 text-slate-400 text-sm gap-2">
               <RefreshCw className="h-4 w-4 animate-spin" />
               Fetching from SharePoint…
@@ -789,7 +1033,7 @@ export default function TrackerValidator() {
           )}
 
           {/* Cached SharePoint results */}
-          {(report || cacheError) && (
+          {!mockMode && (report || cacheError) && (
             <div>
               {cached?.report?.source?.filename && (
                 <div className="flex items-center gap-2 text-xs text-slate-400 mb-3">
@@ -814,7 +1058,7 @@ export default function TrackerValidator() {
           )}
 
           {/* Upload fallback results */}
-          {(uploadReport || uploadError) && !isConfigured && (
+          {!mockMode && (uploadReport || uploadError) && !isConfigured && (
             <ResultsBlock report={uploadReport} error={uploadError} />
           )}
         </div>
