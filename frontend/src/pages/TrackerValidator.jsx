@@ -449,7 +449,9 @@ function CompletionPanel({ completion }) {
 
 export default function TrackerValidator() {
   const [domain, setDomain] = useState("Products");
+  const [mode, setMode] = useState("sharepoint"); // "sharepoint" | "upload"
   const [file, setFile] = useState(null);
+  const [sharepointUrl, setSharepointUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState(null);
   const [error, setError] = useState(null);
@@ -463,24 +465,36 @@ export default function TrackerValidator() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!file) return;
     setLoading(true);
     setError(null);
     setReport(null);
     try {
-      const fd = new FormData();
-      fd.append("domain", domain);
-      fd.append("file", file);
-      const res = await fetch(`${API}/validate/tracker`, {
-        method: "POST",
-        body: fd,
-      });
+      let res;
+      if (mode === "sharepoint") {
+        if (!sharepointUrl.trim()) return;
+        res = await fetch(`${API}/validate/tracker/sharepoint`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            domain,
+            sharepoint_url: sharepointUrl.trim(),
+          }),
+        });
+      } else {
+        if (!file) return;
+        const fd = new FormData();
+        fd.append("domain", domain);
+        fd.append("file", file);
+        res = await fetch(`${API}/validate/tracker`, {
+          method: "POST",
+          body: fd,
+        });
+      }
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
         throw new Error(d.detail || `HTTP ${res.status}`);
       }
-      const data = await res.json();
-      setReport(data);
+      setReport(await res.json());
     } catch (err) {
       setError(err.message);
     } finally {
@@ -488,6 +502,8 @@ export default function TrackerValidator() {
     }
   }
 
+  const canSubmit =
+    mode === "sharepoint" ? sharepointUrl.trim().length > 0 : !!file;
   const totalErrors = report?.summary?.total_errors ?? 0;
   const totalRows = report?.summary?.total_rows ?? 0;
   const errorsByRule = report?.summary?.errors_by_rule ?? {};
@@ -533,29 +549,82 @@ export default function TrackerValidator() {
                 </Select>
               </div>
 
-              {/* File upload */}
+              {/* Source mode toggle */}
               <div className="space-y-1">
                 <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Tracker File
+                  Source
                 </label>
-                <FileDropZone
-                  label="Tracker file (.xlsx)"
-                  file={file}
-                  onFile={setFile}
-                />
+                <div className="flex rounded-md border border-slate-200 dark:border-slate-700 overflow-hidden text-xs">
+                  {[
+                    { id: "sharepoint", label: "SharePoint" },
+                    { id: "upload", label: "Upload" },
+                  ].map(({ id, label }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => {
+                        setMode(id);
+                        setFile(null);
+                        setReport(null);
+                        setError(null);
+                      }}
+                      className={`flex-1 py-1.5 font-medium transition-colors ${
+                        mode === id
+                          ? "bg-brand-500 text-white"
+                          : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {/* SharePoint URL input */}
+              {mode === "sharepoint" && (
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    SharePoint URL
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Paste the SharePoint link to the tracker file…"
+                    value={sharepointUrl}
+                    onChange={(e) => setSharepointUrl(e.target.value)}
+                    className="w-full text-xs border border-slate-200 dark:border-slate-700 rounded-md px-2.5 py-2 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-brand-500 focus:outline-none resize-none text-slate-700 dark:text-slate-300 placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                  />
+                </div>
+              )}
+
+              {/* File upload */}
+              {mode === "upload" && (
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    Tracker File
+                  </label>
+                  <FileDropZone
+                    label="Tracker file (.xlsx / .xlsb)"
+                    file={file}
+                    onFile={setFile}
+                  />
+                </div>
+              )}
 
               <Button
                 type="submit"
-                disabled={!file || loading}
+                disabled={!canSubmit || loading}
                 className="w-full"
                 size="md"
               >
                 {loading ? (
                   <>
                     <span className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />{" "}
-                    Validating...
+                    {mode === "sharepoint"
+                      ? "Fetching from SharePoint…"
+                      : "Validating…"}
                   </>
+                ) : mode === "sharepoint" ? (
+                  "Load & Validate"
                 ) : (
                   "Run Validation"
                 )}
@@ -576,6 +645,20 @@ export default function TrackerValidator() {
 
             {report && (
               <div className="space-y-4">
+                {/* SharePoint source badge */}
+                {report.source?.type === "sharepoint" && (
+                  <div className="flex items-center gap-2 text-xs text-slate-400">
+                    <FileSpreadsheet className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span className="truncate">{report.source.filename}</span>
+                    <span className="text-slate-300 dark:text-slate-600">
+                      ·
+                    </span>
+                    <span className="text-emerald-500">
+                      Live from SharePoint
+                    </span>
+                  </div>
+                )}
+
                 {/* Warnings */}
                 {report.warnings?.map((w, i) => (
                   <div

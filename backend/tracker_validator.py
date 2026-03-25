@@ -598,7 +598,9 @@ def _validate_customer_employee(
 # ---------------------------------------------------------------------------
 
 
-def validate_tracker(domain: str, file_bytes: bytes) -> ValidationReport:
+def validate_tracker(
+    domain: str, file_bytes: bytes, filename: str = ""
+) -> ValidationReport:
     """Validate a tracker Excel file for the given domain.
 
     Args:
@@ -610,8 +612,9 @@ def validate_tracker(domain: str, file_bytes: bytes) -> ValidationReport:
     """
     report = ValidationReport()
 
+    engine = "pyxlsb" if filename.lower().endswith(".xlsb") else "openpyxl"
     try:
-        xl = pd.ExcelFile(BytesIO(file_bytes), engine="openpyxl")
+        xl = pd.ExcelFile(BytesIO(file_bytes), engine=engine)
     except Exception as exc:
         report.warnings.append(
             f"Failed to open tracker file as an Excel workbook: {exc}"

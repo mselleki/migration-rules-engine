@@ -366,7 +366,7 @@ async def validate_tracker_endpoint(
     from tracker_validator import validate_tracker
 
     file_bytes = await file.read()
-    report = validate_tracker(domain, file_bytes)
+    report = validate_tracker(domain, file_bytes, filename=file.filename or "")
     return {
         "summary": {
             "total_rows": report.total_rows,
@@ -376,6 +376,44 @@ async def validate_tracker_endpoint(
         "errors": report.errors,
         "warnings": report.warnings,
         "completion": report.completion,
+    }
+
+
+class SharePointTrackerIn(BaseModel):
+    domain: str
+    sharepoint_url: str
+
+
+@app.post("/validate/tracker/sharepoint")
+async def validate_tracker_sharepoint(body: SharePointTrackerIn):
+    """Fetch a tracker file directly from SharePoint and validate it."""
+    from tracker_validator import validate_tracker
+    from sharepoint_connector import download_tracker_file
+
+    try:
+        file_bytes, filename = download_tracker_file(body.sharepoint_url)
+    except EnvironmentError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"SharePoint error: {exc}")
+
+    report = validate_tracker(body.domain, file_bytes, filename=filename)
+    return {
+        "summary": {
+            "total_rows": report.total_rows,
+            "total_errors": report.total_errors,
+            "errors_by_rule": report.errors_by_rule,
+        },
+        "errors": report.errors,
+        "warnings": report.warnings,
+        "completion": report.completion,
+        "source": {
+            "type": "sharepoint",
+            "filename": filename,
+            "url": body.sharepoint_url,
+        },
     }
 
 
