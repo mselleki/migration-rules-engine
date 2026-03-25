@@ -7,7 +7,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   CheckSquare,
@@ -322,7 +322,6 @@ function NavItem({ to, label, Icon }) {
 
 function NavMigrationsDropdown({ items }) {
   const [open, setOpen] = useState(false);
-  const wrapRef = useRef(null);
   const location = useLocation();
   const MenuIcon = NAV_MIGRATIONS_MENU.icon;
 
@@ -333,16 +332,6 @@ function NavMigrationsDropdown({ items }) {
         : location.pathname === item.to ||
           location.pathname.startsWith(`${item.to}/`),
   );
-
-  useEffect(() => {
-    const onDoc = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, []);
 
   useEffect(() => {
     setOpen(false);
@@ -358,7 +347,11 @@ function NavMigrationsDropdown({ items }) {
   }, [open]);
 
   return (
-    <div className="relative flex h-16 items-stretch" ref={wrapRef}>
+    <div
+      className="relative flex h-16 items-stretch"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
       <button
         type="button"
         aria-expanded={open}
@@ -384,26 +377,31 @@ function NavMigrationsDropdown({ items }) {
       </button>
       {open && (
         <div
-          className="absolute left-0 top-full z-50 min-w-[14rem] py-1 rounded-md border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900"
-          role="menu"
+          className="absolute left-0 top-full z-50 min-w-[14rem] pt-1"
+          role="presentation"
         >
-          {items.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              role="menuitem"
-              className={({ isActive }) =>
-                "flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors " +
-                (isActive
-                  ? "bg-brand-50 text-brand-600 dark:bg-brand-950/40 dark:text-brand-400"
-                  : "text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800")
-              }
-              onClick={() => setOpen(false)}
-            >
-              <Icon className="h-4 w-4 shrink-0 opacity-70" aria-hidden="true" />
-              {label}
-            </NavLink>
-          ))}
+          <div
+            className="py-1 rounded-md border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900"
+            role="menu"
+          >
+            {items.map(({ to, label, icon: Icon }) => (
+              <NavLink
+                key={to}
+                to={to}
+                role="menuitem"
+                className={({ isActive }) =>
+                  "flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors " +
+                  (isActive
+                    ? "bg-brand-50 text-brand-600 dark:bg-brand-950/40 dark:text-brand-400"
+                    : "text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800")
+                }
+                onClick={() => setOpen(false)}
+              >
+                <Icon className="h-4 w-4 shrink-0 opacity-70" aria-hidden="true" />
+                {label}
+              </NavLink>
+            ))}
+          </div>
         </div>
       )}
     </div>
