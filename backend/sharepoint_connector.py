@@ -1,7 +1,8 @@
 """SharePoint connector — downloads tracker files via Office365 REST API.
 
-Authentication uses delegated credentials (SHAREPOINT_USER / SHAREPOINT_PASSWORD
-environment variables). No Azure AD app registration required.
+Authentication uses an Azure AD App Registration (client credentials flow):
+  SHAREPOINT_CLIENT_ID     — Azure AD application (client) ID
+  SHAREPOINT_CLIENT_SECRET — Azure AD client secret
 """
 
 from __future__ import annotations
@@ -9,20 +10,41 @@ from __future__ import annotations
 import io
 import os
 import re
+import ssl
+import urllib3
 from urllib.parse import parse_qs, unquote, urlparse
 
-from office365.runtime.auth.user_credential import UserCredential
-from office365.sharepoint.client_context import ClientContext
+# Disable SSL verification for corporate proxy environments (same pattern as
+# other Sysco internal tools).
+os.environ.setdefault("REQUESTS_CA_BUNDLE", "")
+os.environ.setdefault("CURL_CA_BUNDLE", "")
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+ssl._create_default_https_context = ssl._create_unverified_context  # noqa: SLF001
+
+import requests  # noqa: E402 (must come after env vars are set)
+
+_orig_request = requests.Session.request
 
 
-def _credentials() -> UserCredential:
-    user = os.getenv("SHAREPOINT_USER", "").strip()
-    password = os.getenv("SHAREPOINT_PASSWORD", "").strip()
-    if not user or not password:
+def _patched_request(self, *args, **kwargs):
+    kwargs["verify"] = False
+    return _orig_request(self, *args, **kwargs)
+
+
+requests.Session.request = _patched_request  # type: ignore[method-assign]
+
+from office365.runtime.auth.client_credential import ClientCredential  # noqa: E402
+from office365.sharepoint.client_context import ClientContext  # noqa: E402
+
+
+def _credentials() -> ClientCredential:
+    client_id = os.getenv("SHAREPOINT_CLIENT_ID", "").strip()
+    client_secret = os.getenv("SHAREPOINT_CLIENT_SECRET", "").strip()
+    if not client_id or not client_secret:
         raise EnvironmentError(
-            "SHAREPOINT_USER and SHAREPOINT_PASSWORD environment variables must be set."
+            "SHAREPOINT_CLIENT_ID and SHAREPOINT_CLIENT_SECRET environment variables must be set."
         )
-    return UserCredential(user, password)
+    return ClientCredential(client_id, client_secret)
 
 
 def parse_sharepoint_url(url: str) -> dict:
@@ -78,7 +100,7 @@ def download_tracker_file(sharepoint_url: str) -> tuple[bytes, str]:
         )
 
     creds = _credentials()
-    ctx = ClientContext(site_url).with_credentials(creds)
+    ctx = ClientContext(site_url).with_credentials(creds)  # type: ignore[arg-type]
 
     # ── Strategy 1: fetch by unique GUID ────────────────────────────────────
     if file_guid:
