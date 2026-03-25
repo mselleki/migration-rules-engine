@@ -9,7 +9,7 @@ const ROLES = [
   {
     id: "market",
     label: "Market",
-    desc: "Access to Tracker validation and LOV Explorer.",
+    desc: "Access to Tracker, Reconciliations, and LOV Explorer.",
     requiresPassword: false,
   },
   {

@@ -16,6 +16,7 @@ import {
   GitCompare,
   Scale,
   ClipboardCheck,
+  Layers2,
   ChevronDown,
   Sun,
   Moon,
@@ -35,6 +36,7 @@ import LovExplorer from "./pages/LovExplorer.jsx";
 import Migrations from "./pages/Migrations.jsx";
 import DiffViewer from "./pages/DiffViewer.jsx";
 import TrackerValidator from "./pages/TrackerValidator.jsx";
+import Reconciliations from "./pages/Reconciliations.jsx";
 
 const NAV_BASE = [
   {
@@ -48,6 +50,12 @@ const NAV_BASE = [
     label: "Tracker",
     icon: ClipboardCheck,
     desc: "Validate a P1 Data Cleansing tracker file shared with the business - checks mandatory fields, LOV values, and formats.",
+  },
+  {
+    to: "/reconciliations",
+    label: "Reconciliations",
+    icon: Layers2,
+    desc: "Compare SharePoint Tracker data with STIBO — range and attribute reconciliation (incl. legal-entity rules where needed).",
   },
   {
     to: "/lov-explorer",
@@ -82,21 +90,20 @@ const NAV_MIGRATIONS_MENU = {
   ],
 };
 
-/** Flat list for Pages Guide modal (same pages as before, sensible order). */
+/** Flat list for Pages Guide modal (sensible order). */
 const PAGES_GUIDE_ENTRIES = [
   NAV_BASE[0],
   ...NAV_MIGRATIONS_MENU.items,
-  NAV_BASE[1],
-  NAV_BASE[2],
+  ...NAV_BASE.slice(1),
 ];
 
 const SHORTCUTS = [
   { keys: ["Ctrl", "K"], mac: ["⌘", "K"], desc: "LOV search (modal)" },
   { keys: ["/"], mac: ["/"], desc: "LOV search (modal)" },
   {
-    keys: ["Alt", "1–6"],
-    mac: ["⌥", "1–6"],
-    desc: "Navigate to page 1–6",
+    keys: ["Alt", "1–7"],
+    mac: ["⌥", "1–7"],
+    desc: "Navigate to page 1–7",
   },
   { keys: ["T"], mac: ["T"], desc: "Toggle dark / light" },
   { keys: ["?"], mac: ["?"], desc: "Show this panel" },
@@ -222,7 +229,11 @@ function PagesGuideModal({ onClose }) {
 
 // ─── Global keyboard shortcuts ───────────────────────────────────────────────
 
-const MARKET_ALLOWED = new Set(["/tracker", "/lov-explorer"]);
+const MARKET_ALLOWED = new Set([
+  "/tracker",
+  "/reconciliations",
+  "/lov-explorer",
+]);
 
 function useKeyboardShortcuts(setShowLov, setShowHelp) {
   const navigate = useNavigate();
@@ -260,13 +271,14 @@ function useKeyboardShortcuts(setShowLov, setShowHelp) {
         return;
       }
 
-      // Alt+1–6 navigation
+      // Alt+1–7 navigation
       if (e.altKey && !e.ctrlKey && !e.metaKey) {
         const routes = [
           "/",
           "/migrations",
           "/validator",
           "/tracker",
+          "/reconciliations",
           "/lov-explorer",
           "/diff",
         ];
@@ -538,6 +550,7 @@ function AnimatedRoutes() {
             <Route path="/lov-explorer" element={<LovExplorer />} />
             <Route path="/migrations" element={<Migrations />} />
             <Route path="/diff" element={<DiffViewer />} />
+            <Route path="/reconciliations" element={<Reconciliations />} />
           </Routes>
         </div>
       </motion.main>
