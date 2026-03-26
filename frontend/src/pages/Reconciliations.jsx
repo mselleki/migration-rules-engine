@@ -1,24 +1,23 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
-  FileSpreadsheet,
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  Clock,
   Layers2,
   Loader2,
+  RotateCcw,
   Rows3,
+  Settings,
   ShoppingCart,
-  Upload,
+  User,
   X,
 } from "lucide-react";
 import { Badge } from "../components/ui/badge.jsx";
 import { Button } from "../components/ui/button.jsx";
 import { Card, CardContent, CardHeader } from "../components/ui/card.jsx";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../components/ui/select.jsx";
 import {
   Tabs,
   TabsContent,
@@ -34,98 +33,164 @@ import {
 } from "@tanstack/react-table";
 import API from "../api.js";
 
-const ERP_TYPES = ["Jeeves", "Prophet"];
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const LEGAL_ENTITIES = [
+  "Brakes",
+  "Classic_Drinks",
+  "Ekofisk",
+  "Fresh_Direct",
+  "Fruktservice",
+  "KFF",
+  "LAG",
+  "Medina",
+  "Menigo",
+  "Ready_Chef",
+  "Servicestyckarna",
+  "Sysco_France",
+  "Sysco_Northern_Ireland",
+  "Sysco_ROI",
+];
+
+const DOMAINS = ["Product", "Vendor", "Customer"];
+
+const DOMAIN_ICONS = {
+  Product: Rows3,
+  Vendor: ShoppingCart,
+  Customer: User,
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function fmtBytes(b) {
-  if (!b) return "";
-  if (b < 1024) return `${b} B`;
-  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
-  return `${(b / (1024 * 1024)).toFixed(1)} MB`;
+function fmt(ts) {
+  if (!ts) return "";
+  return new Date(ts * 1000).toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
-// ─── File drop zone ───────────────────────────────────────────────────────────
+// ─── Market multi-select ─────────────────────────────────────────────────────
 
-function FileZone({ label, sublabel, file, onFile, accept = ".xlsx" }) {
-  const inputRef = useRef();
-  const [dragging, setDragging] = useState(false);
+function MarketMultiSelect({ selected, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef();
 
-  const handleDrop = useCallback(
-    (e) => {
-      e.preventDefault();
-      setDragging(false);
-      const f = e.dataTransfer.files?.[0];
-      if (f) onFile(f);
-    },
-    [onFile],
-  );
+  useEffect(() => {
+    function onOutside(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    if (open) document.addEventListener("mousedown", onOutside);
+    return () => document.removeEventListener("mousedown", onOutside);
+  }, [open]);
+
+  function toggle(entity) {
+    if (selected.includes(entity))
+      onChange(selected.filter((e) => e !== entity));
+    else onChange([...selected, entity]);
+  }
+
+  function selectAll() {
+    onChange(LEGAL_ENTITIES);
+  }
+  function clearAll() {
+    onChange([]);
+  }
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-label={`${label} — drop zone`}
-      onClick={() => !file && inputRef.current.click()}
-      onKeyDown={(e) => e.key === "Enter" && inputRef.current.click()}
-      onDragOver={(e) => {
-        e.preventDefault();
-        setDragging(true);
-      }}
-      onDragLeave={() => setDragging(false)}
-      onDrop={handleDrop}
-      className={[
-        "relative flex items-start gap-2.5 rounded-md border border-dashed p-3 transition-colors",
-        dragging
-          ? "cursor-copy border-brand-500 bg-brand-50 dark:bg-brand-900/20"
-          : file
-            ? "cursor-default border-success-500 bg-success-50 dark:bg-green-900/10"
-            : "cursor-pointer border-slate-200 hover:border-brand-400 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800/40",
-      ].join(" ")}
-    >
-      <FileSpreadsheet
-        className={`mt-0.5 h-4 w-4 flex-shrink-0 ${file ? "text-success-500" : "text-slate-400"}`}
-      />
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium text-slate-700 dark:text-slate-300 leading-tight">
-          {label}
-        </p>
-        {sublabel && (
-          <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">
-            {sublabel}
-          </p>
-        )}
-        {file ? (
-          <p className="text-[11px] text-success-600 dark:text-green-400 mt-1 truncate">
-            {file.name} · {fmtBytes(file.size)}
-          </p>
-        ) : (
-          <p className="text-[11px] text-slate-400 mt-0.5">
-            Drop {accept} or click to browse
-          </p>
-        )}
-      </div>
-      {file ? (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onFile(null);
-          }}
-          className="mt-0.5 p-0.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 transition-colors flex-shrink-0"
-          aria-label="Remove file"
-        >
-          <X className="h-3 w-3" />
-        </button>
-      ) : (
-        <Upload className="mt-0.5 h-3 w-3 text-slate-300 flex-shrink-0" />
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={[
+          "flex h-9 min-w-[220px] items-center justify-between gap-2 rounded-md border px-3 text-sm transition-colors",
+          open
+            ? "border-brand-400 ring-1 ring-brand-300 dark:ring-brand-700"
+            : "border-slate-200 dark:border-slate-700 hover:border-brand-300",
+          "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300",
+        ].join(" ")}
+      >
+        <span className="truncate">
+          {selected.length === 0
+            ? "Select markets…"
+            : selected.length === LEGAL_ENTITIES.length
+              ? "All markets"
+              : selected.length === 1
+                ? selected[0]
+                : `${selected.length} markets selected`}
+        </span>
+        <ChevronDown
+          className={`h-4 w-4 flex-shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {open && (
+        <div className="absolute z-50 mt-1 w-64 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100 dark:border-slate-800">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              {selected.length} / {LEGAL_ENTITIES.length}
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={selectAll}
+                className="text-[11px] text-brand-500 hover:underline"
+              >
+                All
+              </button>
+              <button
+                onClick={clearAll}
+                className="text-[11px] text-slate-400 hover:underline"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+          <div className="max-h-56 overflow-y-auto py-1">
+            {LEGAL_ENTITIES.map((entity) => {
+              const checked = selected.includes(entity);
+              return (
+                <label
+                  key={entity}
+                  className="flex cursor-pointer items-center gap-2.5 px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggle(entity)}
+                    className="h-3.5 w-3.5 accent-brand-500"
+                  />
+                  <span className="text-sm text-slate-700 dark:text-slate-300">
+                    {entity}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
       )}
-      <input
-        ref={inputRef}
-        type="file"
-        accept={accept}
-        className="hidden"
-        onChange={(e) => onFile(e.target.files?.[0] ?? null)}
-      />
+
+      {/* Selected chips */}
+      {selected.length > 0 && selected.length < LEGAL_ENTITIES.length && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {selected.map((e) => (
+            <span
+              key={e}
+              className="inline-flex items-center gap-1 rounded bg-brand-50 dark:bg-brand-900/30 px-1.5 py-0.5 text-[11px] font-medium text-brand-700 dark:text-brand-300"
+            >
+              {e}
+              <button
+                onClick={() => toggle(e)}
+                className="text-brand-400 hover:text-brand-600"
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -138,7 +203,7 @@ function MetricCard({ label, value, highlight }) {
       <span
         className={`text-xl font-bold tabular-nums ${highlight ? "text-danger-500" : "text-slate-800 dark:text-slate-100"}`}
       >
-        {value.toLocaleString()}
+        {typeof value === "number" ? value.toLocaleString() : value}
       </span>
       <span className="text-[11px] text-slate-500 dark:text-slate-400">
         {label}
@@ -147,18 +212,42 @@ function MetricCard({ label, value, highlight }) {
   );
 }
 
-// ─── Reconciliation table ──────────────────────────────────────────────────────
+function MetricsRow({ metrics, erpName }) {
+  return (
+    <div className="flex rounded-md border border-slate-100 dark:border-slate-700/60 divide-x divide-slate-100 dark:divide-slate-700/60 overflow-hidden bg-white dark:bg-slate-900">
+      <MetricCard label="Total" value={metrics.total} />
+      <MetricCard label="In all 3" value={metrics.in_all_3} />
+      <MetricCard
+        label="Missing STIBO"
+        value={metrics.missing_stibo}
+        highlight={metrics.missing_stibo > 0}
+      />
+      <MetricCard
+        label="Missing CT"
+        value={metrics.missing_ct}
+        highlight={metrics.missing_ct > 0}
+      />
+      <MetricCard
+        label={`Missing ${erpName}`}
+        value={metrics.missing_erp}
+        highlight={metrics.missing_erp > 0}
+      />
+    </div>
+  );
+}
 
-const STATUS_FILTER_OPTIONS = [
-  { value: "all", label: "All" },
-  { value: "in_all", label: "In all 3" },
-  { value: "missing_stibo", label: "Missing STIBO" },
-  { value: "missing_ct", label: "Missing CT" },
-  { value: "missing_erp", label: "Missing ERP" },
-];
+// ─── Reconciliation table ─────────────────────────────────────────────────────
 
-function absenceBadge(absent) {
-  if (absent === "-")
+function presenceCell(val) {
+  return val === "X" ? (
+    <span className="text-success-600 dark:text-success-400 font-bold">✓</span>
+  ) : (
+    <span className="text-slate-300 dark:text-slate-600">—</span>
+  );
+}
+
+function AbsentBadge({ value }) {
+  if (value === "-")
     return (
       <Badge
         variant="secondary"
@@ -167,7 +256,7 @@ function absenceBadge(absent) {
         ✓ In all 3
       </Badge>
     );
-  const count = absent.split(",").length;
+  const count = value.split(",").length;
   return (
     <Badge
       variant="secondary"
@@ -177,47 +266,41 @@ function absenceBadge(absent) {
           : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400"
       }
     >
-      {absent}
+      {value}
     </Badge>
   );
 }
 
-function presenceCell(val) {
-  return val === "X" ? (
-    <span className="text-success-600 dark:text-success-400 font-bold text-sm">
-      ✓
-    </span>
-  ) : (
-    <span className="text-slate-300 dark:text-slate-600 text-sm">—</span>
-  );
-}
+const FILTER_OPTS = [
+  { value: "all", label: "All" },
+  { value: "in_all", label: "In all 3" },
+  { value: "missing_stibo", label: "−STIBO" },
+  { value: "missing_ct", label: "−CT" },
+  { value: "missing_erp", label: "−ERP" },
+];
 
-function ReconcTable({ rows, codeColumn, erpName, filterStatus, searchValue }) {
-  const filtered = useMemo(() => {
-    let data = rows;
-    if (filterStatus === "in_all")
-      data = data.filter((r) => r.Absent_from === "-");
-    else if (filterStatus === "missing_stibo")
-      data = data.filter((r) => r.STIBO === "");
-    else if (filterStatus === "missing_ct")
-      data = data.filter((r) => r.CT === "");
-    else if (filterStatus === "missing_erp")
-      data = data.filter((r) => r[erpName] === "");
+function ReconcTable({ rows, codeKey, erpName }) {
+  const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
 
-    if (searchValue.trim()) {
-      const q = searchValue.trim().toLowerCase();
-      data = data.filter((r) =>
-        String(r[codeColumn]).toLowerCase().includes(q),
-      );
+  const data = useMemo(() => {
+    let d = rows;
+    if (filter === "in_all") d = d.filter((r) => r.Absent_from === "-");
+    else if (filter === "missing_stibo") d = d.filter((r) => r.STIBO === "");
+    else if (filter === "missing_ct") d = d.filter((r) => r.CT === "");
+    else if (filter === "missing_erp") d = d.filter((r) => r[erpName] === "");
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      d = d.filter((r) => String(r[codeKey]).toLowerCase().includes(q));
     }
-    return data;
-  }, [rows, filterStatus, searchValue, codeColumn, erpName]);
+    return d;
+  }, [rows, filter, search, codeKey, erpName]);
 
   const columns = useMemo(
     () => [
       {
-        accessorKey: codeColumn,
-        header: codeColumn,
+        accessorKey: codeKey,
+        header: codeKey,
         size: 160,
         cell: (i) => (
           <span className="font-mono text-xs text-slate-800 dark:text-slate-200">
@@ -228,7 +311,7 @@ function ReconcTable({ rows, codeColumn, erpName, filterStatus, searchValue }) {
       {
         accessorKey: "CT",
         header: "CT",
-        size: 60,
+        size: 55,
         cell: (i) => presenceCell(i.getValue()),
       },
       {
@@ -240,21 +323,20 @@ function ReconcTable({ rows, codeColumn, erpName, filterStatus, searchValue }) {
       {
         accessorKey: "STIBO",
         header: "STIBO",
-        size: 70,
+        size: 65,
         cell: (i) => presenceCell(i.getValue()),
       },
       {
         accessorKey: "Absent_from",
         header: "Status",
-        size: undefined,
-        cell: (i) => absenceBadge(i.getValue()),
+        cell: (i) => <AbsentBadge value={i.getValue()} />,
       },
     ],
-    [codeColumn, erpName],
+    [codeKey, erpName],
   );
 
   const table = useReactTable({
-    data: filtered,
+    data,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -262,16 +344,40 @@ function ReconcTable({ rows, codeColumn, erpName, filterStatus, searchValue }) {
     initialState: { pagination: { pageSize: 100 } },
   });
 
-  if (filtered.length === 0) {
+  if (rows.length === 0)
     return (
-      <div className="py-10 text-center text-sm text-slate-400">
-        No rows match the current filter.
-      </div>
+      <p className="py-6 text-center text-sm text-slate-400">
+        No data — check SharePoint configuration or uploaded files.
+      </p>
     );
-  }
 
   return (
-    <div>
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex gap-1">
+          {FILTER_OPTS.map(({ value, label }) => (
+            <button
+              key={value}
+              onClick={() => setFilter(value)}
+              className={[
+                "px-2 py-0.5 rounded text-[11px] font-medium border transition-colors",
+                filter === value
+                  ? "bg-brand-500 text-white border-brand-500"
+                  : "border-slate-200 text-slate-500 hover:border-brand-300 dark:border-slate-700 dark:text-slate-400",
+              ].join(" ")}
+            >
+              {label === "−ERP" ? `−${erpName}` : label}
+            </button>
+          ))}
+        </div>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search code…"
+          className="h-7 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-xs placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-400 w-36"
+        />
+      </div>
+
       <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
         <table className="w-full text-sm border-collapse">
           <thead>
@@ -283,13 +389,8 @@ function ReconcTable({ rows, codeColumn, erpName, filterStatus, searchValue }) {
                 {hg.headers.map((h) => (
                   <th
                     key={h.id}
-                    className="px-3 py-2 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap"
-                    style={{
-                      width:
-                        h.column.getSize() !== undefined
-                          ? h.column.getSize()
-                          : undefined,
-                    }}
+                    style={{ width: h.column.getSize() }}
+                    className="px-3 py-2 text-left text-xs font-semibold text-slate-500 dark:text-slate-400"
                   >
                     {flexRender(h.column.columnDef.header, h.getContext())}
                   </th>
@@ -304,7 +405,7 @@ function ReconcTable({ rows, codeColumn, erpName, filterStatus, searchValue }) {
                 className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors"
               >
                 {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="px-3 py-2">
+                  <td key={cell.id} className="px-3 py-1.5">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
@@ -313,11 +414,11 @@ function ReconcTable({ rows, codeColumn, erpName, filterStatus, searchValue }) {
           </tbody>
         </table>
       </div>
-      <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+
+      <div className="flex items-center justify-between text-xs text-slate-400">
         <span>
-          {filtered.length.toLocaleString()} row
-          {filtered.length !== 1 ? "s" : ""}
-          {filtered.length !== rows.length &&
+          {data.length.toLocaleString()} row{data.length !== 1 ? "s" : ""}
+          {data.length !== rows.length &&
             ` (filtered from ${rows.length.toLocaleString()})`}
         </span>
         {table.getPageCount() > 1 && (
@@ -325,20 +426,19 @@ function ReconcTable({ rows, codeColumn, erpName, filterStatus, searchValue }) {
             <button
               disabled={!table.getCanPreviousPage()}
               onClick={() => table.previousPage()}
-              className="px-2 py-1 rounded border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="px-2 py-1 rounded border border-slate-200 dark:border-slate-700 disabled:opacity-40"
             >
-              ‹ Prev
+              ‹
             </button>
             <span>
-              Page {table.getState().pagination.pageIndex + 1} /{" "}
-              {table.getPageCount()}
+              {table.getState().pagination.pageIndex + 1}/{table.getPageCount()}
             </span>
             <button
               disabled={!table.getCanNextPage()}
               onClick={() => table.nextPage()}
-              className="px-2 py-1 rounded border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="px-2 py-1 rounded border border-slate-200 dark:border-slate-700 disabled:opacity-40"
             >
-              Next ›
+              ›
             </button>
           </div>
         )}
@@ -347,127 +447,397 @@ function ReconcTable({ rows, codeColumn, erpName, filterStatus, searchValue }) {
   );
 }
 
-// ─── Invoice/OS entity section ────────────────────────────────────────────────
+// ─── Result views ─────────────────────────────────────────────────────────────
 
-function EntitySection({ title, data, erpName }) {
-  const [filter, setFilter] = useState("all");
-  const [search, setSearch] = useState("");
-
-  const effectiveFilter = filter;
-
-  const metrics = data.metrics;
-
+function ProductResult({ result }) {
+  const erpName = result.erp_name;
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-          {title}
-        </h4>
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1">
-            {[
-              "all",
-              "in_all",
-              "missing_stibo",
-              "missing_ct",
-              "missing_erp",
-            ].map((v) => (
-              <button
-                key={v}
-                onClick={() => setFilter(v)}
-                className={[
-                  "px-2 py-0.5 rounded text-[11px] font-medium border transition-colors",
-                  filter === v
-                    ? "bg-brand-500 text-white border-brand-500"
-                    : "border-slate-200 text-slate-500 hover:border-brand-300 dark:border-slate-700 dark:text-slate-400",
-                ].join(" ")}
-              >
-                {v === "all"
-                  ? "All"
-                  : v === "in_all"
-                    ? "In all 3"
-                    : v === "missing_stibo"
-                      ? "−STIBO"
-                      : v === "missing_ct"
-                        ? "−CT"
-                        : `−${erpName}`}
-              </button>
-            ))}
-          </div>
-          <input
-            type="text"
-            placeholder="Search code…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-7 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-xs text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-400 w-36"
-          />
-        </div>
-      </div>
-
-      <div className="flex rounded-md border border-slate-100 dark:border-slate-700/60 divide-x divide-slate-100 dark:divide-slate-700/60 overflow-hidden bg-white dark:bg-slate-900">
-        <MetricCard label="Total" value={metrics.total} />
-        <MetricCard label="In all 3" value={metrics.in_all_3} />
-        <MetricCard
-          label="Missing STIBO"
-          value={metrics.missing_stibo}
-          highlight={metrics.missing_stibo > 0}
-        />
-        <MetricCard
-          label="Missing CT"
-          value={metrics.missing_ct}
-          highlight={metrics.missing_ct > 0}
-        />
-        <MetricCard
-          label={`Missing ${erpName}`}
-          value={metrics.missing_erp}
-          highlight={metrics.missing_erp > 0}
-        />
-      </div>
-
-      <ReconcTable
-        rows={data.rows}
-        codeColumn="Code"
-        erpName={erpName}
-        filterStatus={effectiveFilter}
-        searchValue={search}
-      />
+      <MetricsRow metrics={result.metrics} erpName={erpName} />
+      <ReconcTable rows={result.rows} codeKey="ProductCode" erpName={erpName} />
     </div>
   );
 }
 
-// ─── Product tab ──────────────────────────────────────────────────────────────
+function InvoiceOsResult({ result }) {
+  const erpName = result.erp_name;
+  return (
+    <Tabs defaultValue="invoice" className="w-full">
+      <TabsList className="w-full justify-start rounded-none border-0 bg-transparent p-0 h-auto border-b border-slate-200 dark:border-slate-700 mb-4">
+        <TabsTrigger value="invoice" className="rounded-none text-xs">
+          Invoice
+        </TabsTrigger>
+        <TabsTrigger value="os" className="rounded-none text-xs">
+          Ordering-Shipping
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="invoice" className="mt-0 space-y-3">
+        <MetricsRow metrics={result.invoice.metrics} erpName={erpName} />
+        <ReconcTable
+          rows={result.invoice.rows}
+          codeKey="Code"
+          erpName={erpName}
+        />
+      </TabsContent>
+      <TabsContent value="os" className="mt-0 space-y-3">
+        <MetricsRow
+          metrics={result.ordering_shipping.metrics}
+          erpName={erpName}
+        />
+        <ReconcTable
+          rows={result.ordering_shipping.rows}
+          codeKey="Code"
+          erpName={erpName}
+        />
+      </TabsContent>
+    </Tabs>
+  );
+}
 
-function ProductTab() {
-  const [erpType, setErpType] = useState("Jeeves");
-  const [files, setFiles] = useState({ ct: null, erp: null, stibo: null });
+function MarketResult({ market, domain, result, warnings, error }) {
+  if (error)
+    return (
+      <div className="flex items-start gap-2 rounded-md border border-danger-200 bg-danger-50 dark:border-red-800 dark:bg-red-900/20 px-3 py-2.5 text-sm text-danger-700 dark:text-red-400">
+        <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+        {error}
+      </div>
+    );
+
+  return (
+    <div className="space-y-3">
+      {warnings?.length > 0 && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20 px-3 py-2 space-y-0.5">
+          {warnings.map((w, i) => (
+            <div
+              key={i}
+              className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-400"
+            >
+              <AlertTriangle className="mt-0.5 h-3 w-3 flex-shrink-0" />
+              {w}
+            </div>
+          ))}
+        </div>
+      )}
+      {domain === "Product" ? (
+        <ProductResult result={result} />
+      ) : (
+        <InvoiceOsResult result={result} />
+      )}
+    </div>
+  );
+}
+
+function RunResults({ runData }) {
+  const { domain, markets, results, warnings, errors } = runData;
+
+  if (markets.length === 1) {
+    const m = markets[0];
+    return (
+      <MarketResult
+        market={m}
+        domain={domain}
+        result={results[m]}
+        warnings={warnings[m]}
+        error={errors[m]}
+      />
+    );
+  }
+
+  return (
+    <Tabs defaultValue={markets[0]} className="w-full">
+      <TabsList className="w-full justify-start rounded-none border-0 bg-transparent p-0 h-auto border-b border-slate-200 dark:border-slate-700 mb-4 flex-wrap gap-y-1">
+        {markets.map((m) => (
+          <TabsTrigger
+            key={m}
+            value={m}
+            className="rounded-none text-xs gap-1.5"
+          >
+            {m}
+            {errors[m] && <AlertCircle className="h-3 w-3 text-danger-500" />}
+            {warnings[m]?.length > 0 && !errors[m] && (
+              <AlertTriangle className="h-3 w-3 text-amber-500" />
+            )}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+      {markets.map((m) => (
+        <TabsContent key={m} value={m} className="mt-0">
+          <MarketResult
+            market={m}
+            domain={domain}
+            result={results[m]}
+            warnings={warnings[m]}
+            error={errors[m]}
+          />
+        </TabsContent>
+      ))}
+    </Tabs>
+  );
+}
+
+// ─── Config status indicator ──────────────────────────────────────────────────
+
+function ConfigWarnings({ markets, domain }) {
+  const [status, setStatus] = useState(null);
+
+  useEffect(() => {
+    if (!markets.length) return;
+    fetch(`${API}/reconcile/config`)
+      .then((r) => r.json())
+      .then((d) => setStatus(d.status))
+      .catch(() => {});
+  }, [markets, domain]);
+
+  if (!status || !markets.length) return null;
+
+  const missing = [];
+  for (const m of markets) {
+    if (!status[m]) continue;
+    const d = status[m][domain];
+    if (!d) continue;
+    for (const src of ["ct", "erp", "stibo"]) {
+      if (!d[src]) missing.push(`${m} — ${src.toUpperCase()} ${domain}`);
+    }
+  }
+
+  if (!missing.length) return null;
+
+  return (
+    <div className="rounded-md border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20 px-3 py-2 space-y-0.5">
+      <p className="text-xs font-medium text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+        <AlertTriangle className="h-3.5 w-3.5" />
+        SharePoint URLs not yet configured — these sources will return 0 codes:
+      </p>
+      <ul className="mt-1 space-y-0.5">
+        {missing.map((m) => (
+          <li
+            key={m}
+            className="text-[11px] text-amber-600 dark:text-amber-500 pl-5"
+          >
+            {m}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ─── History tab ─────────────────────────────────────────────────────────────
+
+function StatusBadge({ status }) {
+  const cls =
+    status === "completed"
+      ? "bg-success-50 text-success-700 border-success-200 dark:bg-green-900/20 dark:text-green-400"
+      : status === "partial"
+        ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400"
+        : "bg-danger-50 text-danger-700 border-danger-200 dark:bg-red-900/20 dark:text-red-400";
+  return (
+    <Badge variant="secondary" className={cls}>
+      {status}
+    </Badge>
+  );
+}
+
+function HistoryRow({ run, onReopen }) {
+  const [expanded, setExpanded] = useState(false);
+  const [detail, setDetail] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  async function expand() {
+    if (expanded) {
+      setExpanded(false);
+      return;
+    }
+    setExpanded(true);
+    if (!detail) {
+      setLoading(true);
+      try {
+        const res = await fetch(`${API}/reconcile/history/${run.id}`);
+        const json = await res.json();
+        setDetail(json);
+      } catch {
+        /* ignore */
+      } finally {
+        setLoading(false);
+      }
+    }
+  }
+
+  const DomainIcon = DOMAIN_ICONS[run.domain] ?? Rows3;
+
+  return (
+    <div className="border-b border-slate-100 dark:border-slate-800 last:border-0">
+      <div
+        className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50/60 dark:hover:bg-slate-800/30 cursor-pointer transition-colors"
+        onClick={expand}
+      >
+        <ChevronRight
+          className={`h-4 w-4 text-slate-400 flex-shrink-0 transition-transform ${expanded ? "rotate-90" : ""}`}
+        />
+        <div className="flex items-center gap-2 flex-1 min-w-0 flex-wrap gap-y-1">
+          <span className="text-xs font-mono text-slate-400 flex-shrink-0">
+            {fmt(run.created_at)}
+          </span>
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">
+            {run.user_name}
+          </span>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <DomainIcon className="h-3.5 w-3.5 text-slate-400" />
+            <span className="text-xs text-slate-500">{run.domain}</span>
+          </div>
+          <Badge
+            variant="secondary"
+            className="text-[10px] px-1.5 py-0.5 flex-shrink-0"
+          >
+            {run.rec_type}
+          </Badge>
+          <StatusBadge status={run.status} />
+          <div className="flex flex-wrap gap-1">
+            {run.markets.map((m) => (
+              <span
+                key={m}
+                className="text-[10px] rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-slate-500 dark:text-slate-400"
+              >
+                {m}
+              </span>
+            ))}
+          </div>
+        </div>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onReopen(run);
+          }}
+          title="Reload in Run tab"
+          className="p-1 rounded text-slate-400 hover:text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors flex-shrink-0"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {expanded && (
+        <div className="px-4 pb-4">
+          {loading ? (
+            <div className="flex items-center gap-2 py-4 text-sm text-slate-400">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading results…
+            </div>
+          ) : detail ? (
+            <RunResults runData={detail} />
+          ) : (
+            <p className="py-4 text-sm text-slate-400">
+              Could not load results.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HistoryTab({ onReopen }) {
+  const [runs, setRuns] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/reconcile/history?limit=50`);
+      setRuns(await res.json());
+    } catch {
+      setRuns([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Last 50 reconciliation runs. Click a row to expand results.
+        </p>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={load}
+          disabled={loading}
+          className="h-7 gap-1.5 text-xs"
+        >
+          <RotateCcw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
+          Refresh
+        </Button>
+      </div>
+
+      {loading && !runs && (
+        <div className="flex items-center gap-2 py-8 justify-center text-sm text-slate-400">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading history…
+        </div>
+      )}
+
+      {runs !== null &&
+        (runs.length === 0 ? (
+          <div className="py-10 text-center">
+            <Clock className="h-8 w-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+            <p className="text-sm text-slate-400">
+              No reconciliation runs yet.
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-md border border-slate-200 dark:border-slate-700 overflow-hidden">
+            {runs.map((run) => (
+              <HistoryRow key={run.id} run={run} onReopen={onReopen} />
+            ))}
+          </div>
+        ))}
+    </div>
+  );
+}
+
+// ─── Run tab ──────────────────────────────────────────────────────────────────
+
+function RunTab({ prefill }) {
+  const [name, setName] = useState(prefill?.user_name ?? "");
+  const [domain, setDomain] = useState(prefill?.domain ?? "Product");
+  const [markets, setMarkets] = useState(prefill?.markets ?? []);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
-  const [filter, setFilter] = useState("all");
-  const [search, setSearch] = useState("");
 
-  const setFile = (key) => (f) => setFiles((prev) => ({ ...prev, [key]: f }));
-  const canRun = files.ct && files.erp && files.stibo;
+  // Apply prefill when a run is reopened from history.
+  useEffect(() => {
+    if (!prefill) return;
+    setName(prefill.user_name ?? "");
+    setDomain(prefill.domain ?? "Product");
+    setMarkets(prefill.markets ?? []);
+    setResult(prefill);
+  }, [prefill]);
+
+  const canRun = name.trim() && markets.length > 0 && !loading;
 
   async function run() {
     setLoading(true);
     setError(null);
     setResult(null);
     try {
-      const fd = new FormData();
-      fd.append("erp_type", erpType);
-      fd.append("ct_file", files.ct);
-      fd.append("erp_file", files.erp);
-      fd.append("stibo_file", files.stibo);
-      const res = await fetch(`${API}/reconcile/product`, {
+      const res = await fetch(`${API}/reconcile/run`, {
         method: "POST",
-        body: fd,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_name: name.trim(),
+          markets,
+          domain,
+          rec_type: "range",
+        }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.detail || res.statusText);
       setResult(json);
-      setFilter("all");
-      setSearch("");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -475,68 +845,86 @@ function ProductTab() {
     }
   }
 
-  const erpName = result?.erp_name ?? erpType;
-  const m = result?.metrics;
-
   return (
     <div className="space-y-5">
-      {/* Config */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
-              ERP
-            </span>
-            <Select value={erpType} onValueChange={setErpType}>
-              <SelectTrigger className="h-8 w-32 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ERP_TYPES.map((t) => (
-                  <SelectItem key={t} value={t} className="text-xs">
-                    {t}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      {/* Form */}
+      <div className="space-y-4">
+        {/* Row 1: Name + Domain + Type */}
+        <div className="flex flex-wrap items-start gap-4">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
+              Your name
+            </label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="First Last"
+              className="h-9 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-400 w-40"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
+              Domain
+            </label>
+            <div className="flex gap-1">
+              {DOMAINS.map((d) => {
+                const Icon = DOMAIN_ICONS[d];
+                return (
+                  <button
+                    key={d}
+                    onClick={() => setDomain(d)}
+                    className={[
+                      "flex items-center gap-1.5 h-9 px-3 rounded-md border text-sm font-medium transition-colors",
+                      domain === d
+                        ? "bg-brand-500 text-white border-brand-500"
+                        : "border-slate-200 text-slate-600 hover:border-brand-300 dark:border-slate-700 dark:text-slate-400",
+                    ].join(" ")}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {d}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
+              Type
+            </label>
+            <div className="flex gap-1">
+              <button className="flex items-center gap-1.5 h-9 px-3 rounded-md border text-sm font-medium bg-brand-500 text-white border-brand-500">
+                Range
+              </button>
+              <button
+                disabled
+                title="Coming soon"
+                className="flex items-center gap-1.5 h-9 px-3 rounded-md border text-sm font-medium border-slate-200 text-slate-400 dark:border-slate-700 cursor-not-allowed opacity-50"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                Attribute
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <FileZone
-            label="CT Product"
-            sublabel="Headers row 6, data from B7 (.xlsx or .xlsb)"
-            file={files.ct}
-            onFile={setFile("ct")}
-            accept=".xlsx,.xlsb"
-          />
-          <FileZone
-            label={`${erpType} Product`}
-            sublabel={
-              erpType === "Jeeves"
-                ? "Sheet '2-EXCELMASTER', col A from row 3"
-                : "Row 2 headers, 'FD Product Code' column"
-            }
-            file={files.erp}
-            onFile={setFile("erp")}
-          />
-          <FileZone
-            label="STIBO Product"
-            sublabel="Headers row 1, SUPC column from row 2"
-            file={files.stibo}
-            onFile={setFile("stibo")}
-          />
+        {/* Row 2: Market multi-select */}
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
+            Markets
+          </label>
+          <MarketMultiSelect selected={markets} onChange={setMarkets} />
         </div>
 
-        <Button
-          onClick={run}
-          disabled={!canRun || loading}
-          className="h-8 text-xs gap-2"
-        >
+        {/* Config warnings */}
+        <ConfigWarnings markets={markets} domain={domain} />
+
+        <Button onClick={run} disabled={!canRun} className="h-9 gap-2">
           {loading ? (
             <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Running…
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Running reconciliation…
             </>
           ) : (
             "Run Reconciliation"
@@ -546,7 +934,7 @@ function ProductTab() {
 
       {/* Error */}
       {error && (
-        <div className="flex items-start gap-2 rounded-md border border-danger-200 bg-danger-50 dark:bg-red-900/20 dark:border-red-800 px-3 py-2.5 text-sm text-danger-700 dark:text-red-400">
+        <div className="flex items-start gap-2 rounded-md border border-danger-200 bg-danger-50 dark:border-red-800 dark:bg-red-900/20 px-3 py-2.5 text-sm text-danger-700 dark:text-red-400">
           <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
           {error}
         </div>
@@ -554,252 +942,16 @@ function ProductTab() {
 
       {/* Results */}
       {result && (
-        <div className="space-y-4">
-          {/* Metrics */}
-          <div className="flex rounded-md border border-slate-100 dark:border-slate-700/60 divide-x divide-slate-100 dark:divide-slate-700/60 overflow-hidden bg-white dark:bg-slate-900">
-            <MetricCard label="Total unique" value={m.total} />
-            <MetricCard label="In all 3" value={m.in_all_3} />
-            <MetricCard label="CT" value={m.ct_count} />
-            <MetricCard label={erpName} value={m.erp_count} />
-            <MetricCard label="STIBO" value={m.stibo_count} />
-            <MetricCard
-              label="Missing STIBO"
-              value={m.missing_stibo}
-              highlight={m.missing_stibo > 0}
-            />
-            <MetricCard
-              label={`Missing ${erpName}`}
-              value={m.missing_erp}
-              highlight={m.missing_erp > 0}
-            />
-            <MetricCard
-              label="Missing CT"
-              value={m.missing_ct}
-              highlight={m.missing_ct > 0}
-            />
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-success-500" />
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              Results — {result.domain} Range — {result.markets?.join(", ")}
+            </span>
+            <StatusBadge status={result.status} />
           </div>
-
-          {/* Filters */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-1">
-              {STATUS_FILTER_OPTIONS.map(({ value, label }) => (
-                <button
-                  key={value}
-                  onClick={() => setFilter(value)}
-                  className={[
-                    "px-2.5 py-1 rounded text-xs font-medium border transition-colors",
-                    filter === value
-                      ? "bg-brand-500 text-white border-brand-500"
-                      : "border-slate-200 text-slate-500 hover:border-brand-300 dark:border-slate-700 dark:text-slate-400",
-                  ].join(" ")}
-                >
-                  {label === "Missing ERP" ? `Missing ${erpName}` : label}
-                </button>
-              ))}
-            </div>
-            <input
-              type="text"
-              placeholder="Search product code…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-7 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-xs text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-400 w-44"
-            />
-          </div>
-
-          <ReconcTable
-            rows={result.rows}
-            codeColumn="ProductCode"
-            erpName={erpName}
-            filterStatus={filter}
-            searchValue={search}
-          />
+          <RunResults runData={result} />
         </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Vendor / Customer tab ────────────────────────────────────────────────────
-
-const INVOICE_OS_FILES = [
-  {
-    key: "ct_vendor_file",
-    label: "CT Vendor",
-    sublabel: "Sheet 'Invoice' + 'OrderingShipping', col C/D from row 8",
-  },
-  {
-    key: "ct_customer_file",
-    label: "CT Customer",
-    sublabel: "Sheet 'Invoice' + 'OrderingShipping', col C/D from row 8",
-  },
-  {
-    key: "erp_vendor_file",
-    label: "ERP Vendor",
-    sublabel: "Vendor invoice + OS (Jeeves: same file with 2 sheets)",
-  },
-  {
-    key: "erp_customer_file",
-    label: "ERP Customer",
-    sublabel: "Customer invoice + OS (Jeeves: INVOICECUSTOMER sheet)",
-  },
-  {
-    key: "stibo_vendor_invoice",
-    label: "STIBO Vendor Invoice",
-    sublabel: "SUVC Invoice column, or 'Invoice' sheet",
-  },
-  {
-    key: "stibo_vendor_os",
-    label: "STIBO Vendor OS",
-    sublabel: "SUVC Ordering/Shipping col, or 'Ordering-Shipping' sheet",
-  },
-  {
-    key: "stibo_customer_invoice",
-    label: "STIBO Customer Invoice",
-    sublabel: "Invoice Customer Code column, or 'Invoice' sheet",
-  },
-  {
-    key: "stibo_customer_os",
-    label: "STIBO Customer OS",
-    sublabel: "OS column, or 'Ordering-Shipping' sheet",
-  },
-];
-
-function VendorCustomerTab() {
-  const [erpType, setErpType] = useState("Jeeves");
-  const [files, setFiles] = useState(
-    Object.fromEntries(INVOICE_OS_FILES.map((f) => [f.key, null])),
-  );
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
-
-  const setFile = (key) => (f) => setFiles((prev) => ({ ...prev, [key]: f }));
-  const hasAny = Object.values(files).some(Boolean);
-
-  async function run() {
-    setLoading(true);
-    setError(null);
-    setResult(null);
-    try {
-      const fd = new FormData();
-      fd.append("erp_type", erpType);
-      for (const { key } of INVOICE_OS_FILES) {
-        if (files[key]) fd.append(key, files[key]);
-      }
-      const res = await fetch(`${API}/reconcile/invoice-os`, {
-        method: "POST",
-        body: fd,
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.detail || res.statusText);
-      setResult(json);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const erpName = result?.erp_name ?? erpType;
-
-  return (
-    <div className="space-y-5">
-      {/* Config */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
-            ERP
-          </span>
-          <Select value={erpType} onValueChange={setErpType}>
-            <SelectTrigger className="h-8 w-32 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {ERP_TYPES.map((t) => (
-                <SelectItem key={t} value={t} className="text-xs">
-                  {t}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-          {INVOICE_OS_FILES.map(({ key, label, sublabel }) => (
-            <FileZone
-              key={key}
-              label={label.replace("ERP", erpType)}
-              sublabel={sublabel}
-              file={files[key]}
-              onFile={setFile(key)}
-            />
-          ))}
-        </div>
-
-        <Button
-          onClick={run}
-          disabled={!hasAny || loading}
-          className="h-8 text-xs gap-2"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Running…
-            </>
-          ) : (
-            "Run Reconciliation"
-          )}
-        </Button>
-      </div>
-
-      {error && (
-        <div className="flex items-start gap-2 rounded-md border border-danger-200 bg-danger-50 dark:bg-red-900/20 dark:border-red-800 px-3 py-2.5 text-sm text-danger-700 dark:text-red-400">
-          <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-          {error}
-        </div>
-      )}
-
-      {result && (
-        <Tabs defaultValue="invoice" className="w-full">
-          <TabsList className="w-full justify-start rounded-none border-0 bg-transparent p-0 h-auto border-b border-slate-200 dark:border-slate-700 mb-4">
-            <TabsTrigger value="invoice" className="gap-2 rounded-none">
-              Invoice
-            </TabsTrigger>
-            <TabsTrigger value="os" className="gap-2 rounded-none">
-              Ordering-Shipping
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="invoice" className="mt-0 space-y-6">
-            <EntitySection
-              title="Vendor Invoice"
-              data={result.invoice.vendor}
-              erpName={erpName}
-            />
-            <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
-              <EntitySection
-                title="Customer Invoice"
-                data={result.invoice.customer}
-                erpName={erpName}
-              />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="os" className="mt-0 space-y-6">
-            <EntitySection
-              title="Vendor Ordering-Shipping"
-              data={result.ordering_shipping.vendor}
-              erpName={erpName}
-            />
-            <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
-              <EntitySection
-                title="Customer Ordering-Shipping"
-                data={result.ordering_shipping.customer}
-                erpName={erpName}
-              />
-            </div>
-          </TabsContent>
-        </Tabs>
       )}
     </div>
   );
@@ -808,8 +960,23 @@ function VendorCustomerTab() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function Reconciliations() {
+  const [tab, setTab] = useState("run");
+  const [prefill, setPrefill] = useState(null);
+
+  function reopenRun(run) {
+    // Load full run detail, switch to run tab, prefill form + results.
+    fetch(`${API}/reconcile/history/${run.id}`)
+      .then((r) => r.json())
+      .then((detail) => {
+        setPrefill(detail);
+        setTab("run");
+      })
+      .catch(() => {});
+  }
+
   return (
     <div className="space-y-5">
+      {/* Header */}
       <div className="flex items-start gap-3">
         <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400">
           <Layers2 className="h-5 w-5" aria-hidden />
@@ -819,8 +986,7 @@ export default function Reconciliations() {
             Reconciliations
           </h1>
           <p className="mt-0.5 max-w-3xl text-xs text-slate-500 dark:text-slate-400">
-            Compare product codes and vendor/customer codes across three
-            sources:{" "}
+            Compare{" "}
             <span className="font-medium text-slate-600 dark:text-slate-300">
               CT
             </span>
@@ -831,36 +997,33 @@ export default function Reconciliations() {
             , and{" "}
             <span className="font-medium text-slate-600 dark:text-slate-300">
               STIBO
-            </span>
-            . Upload your extract files and run the reconciliation to identify
-            gaps.
+            </span>{" "}
+            across three domains (Product, Vendor, Customer) for one or more
+            markets. Source files are fetched directly from SharePoint.
           </p>
         </div>
       </div>
 
       <Card>
-        <Tabs defaultValue="product" className="w-full">
+        <Tabs value={tab} onValueChange={setTab} className="w-full">
           <CardHeader className="pb-0">
             <TabsList className="w-full justify-start rounded-none border-0 bg-transparent p-0 h-auto">
-              <TabsTrigger value="product" className="gap-2 rounded-none">
-                <Rows3 className="h-4 w-4 opacity-70" aria-hidden />
-                Product (Range)
+              <TabsTrigger value="run" className="gap-2 rounded-none">
+                <Rows3 className="h-4 w-4 opacity-70" />
+                Run
               </TabsTrigger>
-              <TabsTrigger
-                value="vendor-customer"
-                className="gap-2 rounded-none"
-              >
-                <ShoppingCart className="h-4 w-4 opacity-70" aria-hidden />
-                Vendor / Customer
+              <TabsTrigger value="history" className="gap-2 rounded-none">
+                <Clock className="h-4 w-4 opacity-70" />
+                History
               </TabsTrigger>
             </TabsList>
           </CardHeader>
           <CardContent className="pt-5">
-            <TabsContent value="product" className="mt-0">
-              <ProductTab />
+            <TabsContent value="run" className="mt-0">
+              <RunTab prefill={prefill} />
             </TabsContent>
-            <TabsContent value="vendor-customer" className="mt-0">
-              <VendorCustomerTab />
+            <TabsContent value="history" className="mt-0">
+              <HistoryTab onReopen={reopenRun} />
             </TabsContent>
           </CardContent>
         </Tabs>

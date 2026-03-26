@@ -47,6 +47,9 @@ from lov_store import (
 )
 import tracker_cache
 import tracker_config
+import reconciliation_config
+import reconcile_store
+import reconcile as reconcile_mod
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -139,7 +142,8 @@ app.add_middleware(
 REFERENCE_DIR = Path(__file__).resolve().parent.parent / "reference"
 OUTPUT_DIR = Path(__file__).resolve().parent.parent / "output"
 
-init_db()  # ensure SQLite tables exist
+init_db()  # LOV SQLite tables
+reconcile_store.init_db()  # reconciliation history table
 
 # ---------------------------------------------------------------------------
 # LOV cache — reference data loaded once at startup
@@ -537,7 +541,263 @@ async def refresh_tracker(domain: str):
 
 
 # ---------------------------------------------------------------------------
-# Reconciliation endpoints
+# Reconciliation — SharePoint-based run endpoints
+# ---------------------------------------------------------------------------
+
+import asyncio
+
+
+class ReconciliationRunIn(BaseModel):
+    user_name: str
+    markets: list[str]
+    domain: str  # "Product" | "Vendor" | "Customer"
+    rec_type: str = "range"
+
+
+def _empty_entity_metrics() -> dict:
+    return {
+        "total": 0,
+        "in_all_3": 0,
+        "missing_stibo": 0,
+        "missing_ct": 0,
+        "missing_erp": 0,
+    }
+
+
+async def _fetch(url: str) -> bytes:
+    """Download a SharePoint file in a thread (sync client)."""
+    from sharepoint_connector import download_tracker_file
+
+    data, _ = await asyncio.to_thread(download_tracker_file, url)
+    return data
+
+
+async def _run_market(market: str, domain: str) -> tuple[dict, list[str]]:
+    """Fetch files from SharePoint and run range reconciliation for one market.
+
+    Returns (result_dict, warnings_list).  Never raises — errors become warnings
+    so the overall run can still collect results from other markets.
+    """
+    warnings: list[str] = []
+    urls = reconciliation_config.get_urls(market, domain)
+    erp_name = reconciliation_config.ERP_MAP.get(market, "ERP")
+
+    async def _safe_fetch(src: str) -> bytes | None:
+        url = urls.get(src, "")
+        if not url:
+            warnings.append(f"{src.upper()} {domain} URL not configured for {market}")
+            return None
+        try:
+            return await _fetch(url)
+        except Exception as exc:
+            warnings.append(f"{src.upper()}: download failed — {exc}")
+            return None
+
+    ct_bytes, erp_bytes, stibo_bytes = await asyncio.gather(
+        _safe_fetch("ct"), _safe_fetch("erp"), _safe_fetch("stibo")
+    )
+
+    try:
+        if domain == "Product":
+            ct_codes = reconcile_mod.load_ct_product(ct_bytes) if ct_bytes else []
+            stibo_codes = (
+                reconcile_mod.load_stibo_product(stibo_bytes) if stibo_bytes else []
+            )
+            try:
+                erp_codes = (
+                    reconcile_mod.load_erp_product(erp_bytes, erp_name)
+                    if erp_bytes
+                    else []
+                )
+            except NotImplementedError:
+                erp_codes = []
+                warnings.append(
+                    f"ERP type '{erp_name}' not yet supported for Product loading — ERP column will be empty"
+                )
+            result = reconcile_mod.reconcile_products(
+                ct_codes, erp_codes, stibo_codes, erp_name
+            )
+
+        elif domain == "Vendor":
+            try:
+                raw = reconcile_mod.reconcile_invoice_os(
+                    erp_name=erp_name,
+                    ct_vendor_bytes=ct_bytes,
+                    ct_customer_bytes=None,
+                    erp_vendor_bytes=erp_bytes,
+                    erp_customer_bytes=None,
+                    stibo_vendor_invoice_bytes=stibo_bytes,
+                    stibo_vendor_os_bytes=stibo_bytes,
+                    stibo_customer_invoice_bytes=None,
+                    stibo_customer_os_bytes=None,
+                )
+                result = {
+                    "invoice": raw["invoice"]["vendor"],
+                    "ordering_shipping": raw["ordering_shipping"]["vendor"],
+                    "erp_name": erp_name,
+                }
+            except NotImplementedError as exc:
+                warnings.append(str(exc))
+                result = {
+                    "invoice": {"rows": [], "metrics": _empty_entity_metrics()},
+                    "ordering_shipping": {
+                        "rows": [],
+                        "metrics": _empty_entity_metrics(),
+                    },
+                    "erp_name": erp_name,
+                }
+
+        elif domain == "Customer":
+            try:
+                raw = reconcile_mod.reconcile_invoice_os(
+                    erp_name=erp_name,
+                    ct_vendor_bytes=None,
+                    ct_customer_bytes=ct_bytes,
+                    erp_vendor_bytes=None,
+                    erp_customer_bytes=erp_bytes,
+                    stibo_vendor_invoice_bytes=None,
+                    stibo_vendor_os_bytes=None,
+                    stibo_customer_invoice_bytes=stibo_bytes,
+                    stibo_customer_os_bytes=stibo_bytes,
+                )
+                result = {
+                    "invoice": raw["invoice"]["customer"],
+                    "ordering_shipping": raw["ordering_shipping"]["customer"],
+                    "erp_name": erp_name,
+                }
+            except NotImplementedError as exc:
+                warnings.append(str(exc))
+                result = {
+                    "invoice": {"rows": [], "metrics": _empty_entity_metrics()},
+                    "ordering_shipping": {
+                        "rows": [],
+                        "metrics": _empty_entity_metrics(),
+                    },
+                    "erp_name": erp_name,
+                }
+        else:
+            raise ValueError(f"Unknown domain '{domain}'")
+
+    except (ValueError, KeyError) as exc:
+        warnings.append(f"Reconciliation error: {exc}")
+        result = {"erp_name": erp_name, "error": str(exc)}
+
+    return result, warnings
+
+
+@app.post("/reconcile/run")
+async def run_reconciliation(body: ReconciliationRunIn):
+    """Fetch SharePoint files and run range reconciliation for one or more markets."""
+    if not body.user_name.strip():
+        raise HTTPException(400, "user_name is required")
+    if not body.markets:
+        raise HTTPException(400, "At least one market must be selected")
+    if body.domain not in reconciliation_config.DOMAINS:
+        raise HTTPException(400, f"Unknown domain '{body.domain}'")
+    if body.rec_type != "range":
+        raise HTTPException(400, "Only 'range' reconciliation is currently supported")
+
+    # Run all markets concurrently.
+    tasks = [_run_market(m, body.domain) for m in body.markets]
+    market_results = await asyncio.gather(*tasks)
+
+    results: dict = {}
+    warnings: dict = {}
+    errors: dict = {}
+
+    for market, (result, warns) in zip(body.markets, market_results):
+        if "error" in result:
+            errors[market] = result["error"]
+        else:
+            results[market] = result
+        if warns:
+            warnings[market] = warns
+
+    # Build compact per-market metrics for history.
+    metrics: dict = {}
+    for market, result in results.items():
+        if body.domain == "Product":
+            metrics[market] = result.get("metrics", _empty_entity_metrics())
+        else:
+            metrics[market] = {
+                "invoice": result.get("invoice", {}).get(
+                    "metrics", _empty_entity_metrics()
+                ),
+                "ordering_shipping": result.get("ordering_shipping", {}).get(
+                    "metrics", _empty_entity_metrics()
+                ),
+            }
+
+    status = "completed" if not errors else ("partial" if results else "error")
+
+    run_id = reconcile_store.save_run(
+        user_name=body.user_name.strip(),
+        markets=body.markets,
+        domain=body.domain,
+        rec_type=body.rec_type,
+        status=status,
+        metrics=metrics,
+        warnings=warnings,
+        results={**results, **{f"_error_{m}": e for m, e in errors.items()}},
+    )
+
+    return {
+        "run_id": run_id,
+        "domain": body.domain,
+        "rec_type": body.rec_type,
+        "markets": body.markets,
+        "results": results,
+        "warnings": warnings,
+        "errors": errors,
+        "metrics": metrics,
+        "status": status,
+    }
+
+
+@app.get("/reconcile/history")
+def get_reconciliation_history(limit: int = 50):
+    return reconcile_store.get_history(limit)
+
+
+@app.get("/reconcile/history/{run_id}")
+def get_reconciliation_run(run_id: str):
+    run = reconcile_store.get_run(run_id)
+    if not run:
+        raise HTTPException(404, f"Run '{run_id}' not found")
+    return run
+
+
+@app.get("/reconcile/config")
+def get_reconcile_config():
+    """Return per-entity/domain config status (whether each SharePoint URL is set)."""
+    return {
+        "entities": reconciliation_config.LEGAL_ENTITIES,
+        "erp_map": reconciliation_config.ERP_MAP,
+        "status": reconciliation_config.config_status(),
+    }
+
+
+class ReconcileUrlsIn(BaseModel):
+    ct: str = ""
+    erp: str = ""
+    stibo: str = ""
+
+
+@app.put("/reconcile/config/{entity}/{domain}")
+def update_reconcile_config(entity: str, domain: str, body: ReconcileUrlsIn):
+    """Update SharePoint URLs for one entity + domain (DET only)."""
+    if entity not in reconciliation_config.LEGAL_ENTITIES:
+        raise HTTPException(400, f"Unknown entity '{entity}'")
+    if domain not in reconciliation_config.DOMAINS:
+        raise HTTPException(400, f"Unknown domain '{domain}'")
+    reconciliation_config.update_urls(
+        entity, domain, {"ct": body.ct, "erp": body.erp, "stibo": body.stibo}
+    )
+    return {"ok": True, "entity": entity, "domain": domain}
+
+
+# ---------------------------------------------------------------------------
+# Reconciliation — manual file upload endpoints (kept for local/dev use)
 # ---------------------------------------------------------------------------
 
 
