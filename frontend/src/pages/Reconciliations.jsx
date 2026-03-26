@@ -34,6 +34,87 @@ import {
 } from "@tanstack/react-table";
 import API from "../api.js";
 
+// ─── Mock data ────────────────────────────────────────────────────────────────
+
+function makeRow(code, ct, erp, stibo, erpName) {
+  const absent = [!ct && "CT", !erp && erpName, !stibo && "STIBO"]
+    .filter(Boolean)
+    .join(",");
+  return {
+    ProductCode: code,
+    CT: ct ? "X" : "",
+    [erpName]: erp ? "X" : "",
+    STIBO: stibo ? "X" : "",
+    Absent_from: absent || "-",
+  };
+}
+
+const MOCK_RESULT = {
+  id: "mock",
+  created_at: Date.now() / 1000,
+  user_name: "Demo",
+  domain: "Product",
+  rec_type: "range",
+  status: "partial",
+  markets: ["Ekofisk", "Fresh_Direct"],
+  warnings: {
+    Ekofisk: [],
+    Fresh_Direct: [
+      "STIBO extract returned 0 codes - check SharePoint URL configuration",
+    ],
+  },
+  errors: {},
+  results: {
+    Ekofisk: {
+      erp_name: "Jeeves",
+      metrics: {
+        total: 1842,
+        in_all_3: 1756,
+        missing_stibo: 28,
+        missing_ct: 41,
+        missing_erp: 17,
+      },
+      rows: [
+        ...Array.from({ length: 10 }, (_, i) =>
+          makeRow(
+            `710${String(1000 + i).padStart(4, "0")}`,
+            true,
+            true,
+            true,
+            "Jeeves",
+          ),
+        ),
+        makeRow("7102101", true, true, false, "Jeeves"),
+        makeRow("7102102", true, true, false, "Jeeves"),
+        makeRow("7102103", true, true, false, "Jeeves"),
+        makeRow("7103001", false, true, true, "Jeeves"),
+        makeRow("7103002", false, true, true, "Jeeves"),
+        makeRow("7104001", true, false, true, "Jeeves"),
+        makeRow("7105001", true, false, false, "Jeeves"),
+      ],
+    },
+    Fresh_Direct: {
+      erp_name: "Prophet",
+      metrics: {
+        total: 3210,
+        in_all_3: 3210,
+        missing_stibo: 0,
+        missing_ct: 0,
+        missing_erp: 0,
+      },
+      rows: Array.from({ length: 8 }, (_, i) =>
+        makeRow(
+          `FD${String(10001 + i * 37).padStart(6, "0")}`,
+          true,
+          true,
+          true,
+          "Prophet",
+        ),
+      ),
+    },
+  },
+};
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const LEGAL_ENTITIES = [
@@ -805,22 +886,27 @@ function HistoryTab({ onReopen }) {
 function RunTab({ prefill }) {
   const { role, name: authName, market: authMarket } = useAuth();
   const isMarket = role === "market";
+  const authMarkets = Array.isArray(authMarket)
+    ? authMarket
+    : authMarket
+      ? [authMarket]
+      : [];
 
   const [domain, setDomain] = useState(prefill?.domain ?? "Product");
   const [markets, setMarkets] = useState(
-    prefill?.markets ?? (isMarket && authMarket ? [authMarket] : []),
+    prefill?.markets ?? (isMarket ? authMarkets : []),
   );
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState(MOCK_RESULT);
   const [error, setError] = useState(null);
 
   // Apply prefill when a run is reopened from history.
   useEffect(() => {
     if (!prefill) return;
     setDomain(prefill.domain ?? "Product");
-    setMarkets(prefill.markets ?? (isMarket && authMarket ? [authMarket] : []));
+    setMarkets(prefill.markets ?? (isMarket ? authMarkets : []));
     setResult(prefill);
-  }, [prefill, isMarket, authMarket]);
+  }, [prefill]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const name = authName ?? "";
   const canRun = name.trim() && markets.length > 0 && !loading;
@@ -860,17 +946,17 @@ function RunTab({ prefill }) {
           <span className="font-medium text-slate-700 dark:text-slate-300">
             {name}
           </span>
-          {isMarket && authMarket && (
+          {isMarket && authMarkets.length > 0 && (
             <>
               {" · "}
               <span className="font-medium text-brand-600 dark:text-brand-400">
-                {authMarket}
+                {authMarkets.join(", ")}
               </span>
             </>
           )}
         </p>
 
-        {/* Row 1: Domain + Type */}
+        {/* Domain + Type + Market */}
         <div className="flex flex-wrap items-start gap-4">
           <div className="space-y-1">
             <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
@@ -916,28 +1002,37 @@ function RunTab({ prefill }) {
               </button>
             </div>
           </div>
-        </div>
 
-        {/* Row 2: Market — locked for market users, multi-select for DET */}
-        {isMarket ? (
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
-              Market
-            </label>
-            <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 w-fit">
-              <span className="text-sm text-slate-600 dark:text-slate-400">
-                {authMarket ?? "—"}
-              </span>
+          {/* Market — locked for market users, multi-select for DET */}
+          {isMarket ? (
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                Market
+              </label>
+              <div className="flex flex-wrap items-center gap-1 min-h-[36px] px-2.5 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                {authMarkets.length > 0 ? (
+                  authMarkets.map((m) => (
+                    <span
+                      key={m}
+                      className="inline-flex items-center rounded bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-400"
+                    >
+                      {m}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-slate-400">—</span>
+                )}
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
-              Markets
-            </label>
-            <MarketMultiSelect selected={markets} onChange={setMarkets} />
-          </div>
-        )}
+          ) : (
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                Markets
+              </label>
+              <MarketMultiSelect selected={markets} onChange={setMarkets} />
+            </div>
+          )}
+        </div>
 
         {/* Config warnings */}
         <ConfigWarnings markets={markets} domain={domain} />

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Building2,
   ChevronDown,
@@ -44,6 +44,77 @@ const ROLES = [
   },
 ];
 
+function MarketSelect({ selected, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function onOutside(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    if (open) document.addEventListener("mousedown", onOutside);
+    return () => document.removeEventListener("mousedown", onOutside);
+  }, [open]);
+
+  function toggle(entity) {
+    if (selected.includes(entity))
+      onChange(selected.filter((x) => x !== entity));
+    else onChange([...selected, entity]);
+  }
+
+  const label =
+    selected.length === 0
+      ? "Select your market(s)…"
+      : selected.length === 1
+        ? selected[0]
+        : `${selected.length} markets selected`;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center pl-9 pr-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+      >
+        <Building2 className="absolute left-3 h-4 w-4 text-slate-400 pointer-events-none" />
+        <span
+          className={`flex-1 text-left truncate ${selected.length === 0 ? "text-slate-400" : "text-slate-800 dark:text-slate-100"}`}
+        >
+          {label}
+        </span>
+        <ChevronDown
+          className={`h-4 w-4 text-slate-400 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && (
+        <div className="absolute z-50 w-full mt-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg overflow-hidden">
+          <div className="max-h-48 overflow-y-auto py-1">
+            {LEGAL_ENTITIES.map((entity) => {
+              const checked = selected.includes(entity);
+              return (
+                <label
+                  key={entity}
+                  className="flex cursor-pointer items-center gap-2.5 px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggle(entity)}
+                    className="h-3.5 w-3.5 accent-brand-500"
+                  />
+                  <span className="text-sm text-slate-700 dark:text-slate-300">
+                    {entity}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function LoginScreen() {
   const { login } = useAuth();
   const [selected, setSelected] = useState(null);
@@ -51,7 +122,7 @@ export default function LoginScreen() {
   const [step, setStep] = useState("role");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [market, setMarket] = useState("");
+  const [markets, setMarkets] = useState([]);
   const [error, setError] = useState("");
 
   const handleSelect = (role) => {
@@ -66,8 +137,8 @@ export default function LoginScreen() {
 
   const handleMarketInfoSubmit = (e) => {
     e.preventDefault();
-    if (name.trim() && market) {
-      login("market", name.trim(), market);
+    if (name.trim() && markets.length > 0) {
+      login("market", name.trim(), markets);
     }
   };
 
@@ -178,9 +249,9 @@ export default function LoginScreen() {
                 Welcome, Market user
               </p>
               <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-                Enter your name and select your market.
+                Enter your name and select your market(s).
                 <br />
-                Stored locally — never asked again on this browser.
+                Stored locally - never asked again on this browser.
               </p>
             </div>
             <div className="relative">
@@ -194,27 +265,10 @@ export default function LoginScreen() {
                 className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
-            <div className="relative">
-              <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-              <select
-                value={market}
-                onChange={(e) => setMarket(e.target.value)}
-                className="w-full pl-9 pr-8 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500 appearance-none cursor-pointer"
-              >
-                <option value="" disabled>
-                  Select your market…
-                </option>
-                {LEGAL_ENTITIES.map((e) => (
-                  <option key={e} value={e}>
-                    {e}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <MarketSelect selected={markets} onChange={setMarkets} />
             <button
               type="submit"
-              disabled={!name.trim() || !market}
+              disabled={!name.trim() || markets.length === 0}
               className="w-full py-2.5 rounded-lg bg-brand-500 hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
             >
               Enter
@@ -231,7 +285,7 @@ export default function LoginScreen() {
               <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
                 Used only to track LOV edits and migration runs.
                 <br />
-                Stored locally — never asked again on this browser.
+                Stored locally - never asked again on this browser.
               </p>
             </div>
             <div className="relative">
