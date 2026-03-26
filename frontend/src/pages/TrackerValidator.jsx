@@ -833,23 +833,6 @@ function CompletionPanel({ completion }) {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Overall bar */}
-        <div>
-          <div className="flex justify-between text-xs text-slate-400 mb-1.5">
-            <span>Overall fill rate</span>
-            <span className="tabular-nums">
-              {stats.filledCells.toLocaleString()} /{" "}
-              {stats.totalCells.toLocaleString()} cells
-            </span>
-          </div>
-          <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-brand-500 rounded-full transition-all"
-              style={{ width: `${stats.overallRate * 100}%` }}
-            />
-          </div>
-        </div>
-
         {/* Phase breakdown */}
         <div className="space-y-2">
           {phaseRows.map((phase) => {
