@@ -383,12 +383,11 @@ function NavMigrationsDropdown({ items }) {
   const location = useLocation();
   const MenuIcon = NAV_MIGRATIONS_MENU.icon;
 
-  const childActive = items.some(
-    (item) =>
-      item.to === "/"
-        ? location.pathname === "/"
-        : location.pathname === item.to ||
-          location.pathname.startsWith(`${item.to}/`),
+  const childActive = items.some((item) =>
+    item.to === "/"
+      ? location.pathname === "/"
+      : location.pathname === item.to ||
+        location.pathname.startsWith(`${item.to}/`),
   );
 
   const clearCloseTimer = () => {
@@ -564,7 +563,7 @@ function AppInner() {
   const [showLov, setShowLov] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
-  const { role, name, logout } = useAuth();
+  const { role, name, market, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   useKeyboardShortcuts(setShowLov, setShowHelp);
@@ -578,9 +577,7 @@ function AppInner() {
 
   if (!role) return <LoginScreen />;
 
-  const marketNavItems = NAV_BASE.filter(({ to }) =>
-    MARKET_ALLOWED.has(to),
-  );
+  const marketNavItems = NAV_BASE.filter(({ to }) => MARKET_ALLOWED.has(to));
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
@@ -658,7 +655,7 @@ function AppInner() {
             <button
               onClick={logout}
               aria-label="Log out"
-              title={`Log out (${role === "det" ? `DET - ${name}` : "Market"})`}
+              title={`Log out (${role === "det" ? `DET - ${name}` : `Market - ${name}${market ? ` · ${market}` : ""}`})`}
               className="h-8 w-8 flex items-center justify-center rounded text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
             >
               <LogOut className="h-4 w-4" />

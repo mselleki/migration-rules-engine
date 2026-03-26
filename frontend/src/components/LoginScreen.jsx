@@ -1,9 +1,33 @@
 import { useState } from "react";
-import { GitMerge, Lock, User, ChevronRight } from "lucide-react";
+import {
+  Building2,
+  ChevronDown,
+  GitMerge,
+  Lock,
+  User,
+  ChevronRight,
+} from "lucide-react";
 import { useAuth } from "../context/AuthContext.jsx";
 
 // Override via VITE_DET_PASSWORD env var in Vercel to rotate without code change.
 const DET_PASSWORD = import.meta.env.VITE_DET_PASSWORD ?? "DataE123";
+
+const LEGAL_ENTITIES = [
+  "Brakes",
+  "Classic_Drinks",
+  "Ekofisk",
+  "Fresh_Direct",
+  "Fruktservice",
+  "KFF",
+  "LAG",
+  "Medina",
+  "Menigo",
+  "Ready_Chef",
+  "Servicestyckarna",
+  "Sysco_France",
+  "Sysco_Northern_Ireland",
+  "Sysco_ROI",
+];
 
 const ROLES = [
   {
@@ -23,10 +47,11 @@ const ROLES = [
 export default function LoginScreen() {
   const { login } = useAuth();
   const [selected, setSelected] = useState(null);
-  // step: "role" = role selection + password | "name" = first name input
+  // step: "role" | "market-info" | "name" (DET)
   const [step, setStep] = useState("role");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [market, setMarket] = useState("");
   const [error, setError] = useState("");
 
   const handleSelect = (role) => {
@@ -34,7 +59,15 @@ export default function LoginScreen() {
     setError("");
     setPassword("");
     if (!role.requiresPassword) {
-      login(role.id, null);
+      // Market: go to info step instead of logging in directly
+      setStep("market-info");
+    }
+  };
+
+  const handleMarketInfoSubmit = (e) => {
+    e.preventDefault();
+    if (name.trim() && market) {
+      login("market", name.trim(), market);
     }
   };
 
@@ -136,6 +169,57 @@ export default function LoginScreen() {
               </form>
             )}
           </>
+        )}
+
+        {step === "market-info" && (
+          <form onSubmit={handleMarketInfoSubmit} className="space-y-4">
+            <div className="text-center mb-2">
+              <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
+                Welcome, Market user
+              </p>
+              <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                Enter your name and select your market.
+                <br />
+                Stored locally — never asked again on this browser.
+              </p>
+            </div>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="First and last name"
+                autoFocus
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+            </div>
+            <div className="relative">
+              <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+              <select
+                value={market}
+                onChange={(e) => setMarket(e.target.value)}
+                className="w-full pl-9 pr-8 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500 appearance-none cursor-pointer"
+              >
+                <option value="" disabled>
+                  Select your market…
+                </option>
+                {LEGAL_ENTITIES.map((e) => (
+                  <option key={e} value={e}>
+                    {e}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="submit"
+              disabled={!name.trim() || !market}
+              className="w-full py-2.5 rounded-lg bg-brand-500 hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
+            >
+              Enter
+            </button>
+          </form>
         )}
 
         {step === "name" && (

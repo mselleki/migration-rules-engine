@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "../context/AuthContext.jsx";
 import {
   AlertCircle,
   AlertTriangle,
@@ -802,9 +803,13 @@ function HistoryTab({ onReopen }) {
 // ─── Run tab ──────────────────────────────────────────────────────────────────
 
 function RunTab({ prefill }) {
-  const [name, setName] = useState(prefill?.user_name ?? "");
+  const { role, name: authName, market: authMarket } = useAuth();
+  const isMarket = role === "market";
+
   const [domain, setDomain] = useState(prefill?.domain ?? "Product");
-  const [markets, setMarkets] = useState(prefill?.markets ?? []);
+  const [markets, setMarkets] = useState(
+    prefill?.markets ?? (isMarket && authMarket ? [authMarket] : []),
+  );
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -812,12 +817,12 @@ function RunTab({ prefill }) {
   // Apply prefill when a run is reopened from history.
   useEffect(() => {
     if (!prefill) return;
-    setName(prefill.user_name ?? "");
     setDomain(prefill.domain ?? "Product");
-    setMarkets(prefill.markets ?? []);
+    setMarkets(prefill.markets ?? (isMarket && authMarket ? [authMarket] : []));
     setResult(prefill);
-  }, [prefill]);
+  }, [prefill, isMarket, authMarket]);
 
+  const name = authName ?? "";
   const canRun = name.trim() && markets.length > 0 && !loading;
 
   async function run() {
@@ -849,20 +854,24 @@ function RunTab({ prefill }) {
     <div className="space-y-5">
       {/* Form */}
       <div className="space-y-4">
-        {/* Row 1: Name + Domain + Type */}
-        <div className="flex flex-wrap items-start gap-4">
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
-              Your name
-            </label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="First Last"
-              className="h-9 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-400 w-40"
-            />
-          </div>
+        {/* Running as */}
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Running as{" "}
+          <span className="font-medium text-slate-700 dark:text-slate-300">
+            {name}
+          </span>
+          {isMarket && authMarket && (
+            <>
+              {" · "}
+              <span className="font-medium text-brand-600 dark:text-brand-400">
+                {authMarket}
+              </span>
+            </>
+          )}
+        </p>
 
+        {/* Row 1: Domain + Type */}
+        <div className="flex flex-wrap items-start gap-4">
           <div className="space-y-1">
             <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
               Domain
@@ -909,13 +918,26 @@ function RunTab({ prefill }) {
           </div>
         </div>
 
-        {/* Row 2: Market multi-select */}
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
-            Markets
-          </label>
-          <MarketMultiSelect selected={markets} onChange={setMarkets} />
-        </div>
+        {/* Row 2: Market — locked for market users, multi-select for DET */}
+        {isMarket ? (
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
+              Market
+            </label>
+            <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 w-fit">
+              <span className="text-sm text-slate-600 dark:text-slate-400">
+                {authMarket ?? "—"}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
+              Markets
+            </label>
+            <MarketMultiSelect selected={markets} onChange={setMarkets} />
+          </div>
+        )}
 
         {/* Config warnings */}
         <ConfigWarnings markets={markets} domain={domain} />

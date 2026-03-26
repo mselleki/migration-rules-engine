@@ -15,8 +15,8 @@ function readSession() {
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(readSession);
 
-  const login = (role, name = null) => {
-    const s = { role, name };
+  const login = (role, name = null, market = null) => {
+    const s = { role, name, market };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
     setSession(s);
   };
@@ -31,6 +31,7 @@ export function AuthProvider({ children }) {
       value={{
         role: session?.role ?? null,
         name: session?.name ?? null,
+        market: session?.market ?? null,
         login,
         logout,
       }}
