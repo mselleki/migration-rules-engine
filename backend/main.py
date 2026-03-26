@@ -425,10 +425,10 @@ def create_custom_lov(body: CustomLovIn):
 
 
 @app.delete("/lovs/custom/{entry_id}")
-def remove_custom_lov(entry_id: str, user: str):
+def remove_custom_lov(entry_id: str, user: str, reason: str = ""):
     if not user.strip():
         raise HTTPException(400, "user is required")
-    if not delete_custom_lov(entry_id, user):
+    if not delete_custom_lov(entry_id, user, reason):
         raise HTTPException(404, "Entry not found")
     return {"ok": True}
 

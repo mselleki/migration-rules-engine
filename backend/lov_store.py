@@ -53,6 +53,14 @@ def init_db() -> None:
                 ts          REAL NOT NULL
             );
         """)
+        # Migration: add reason column if it does not exist yet
+        existing = {
+            row[1] for row in con.execute("PRAGMA table_info(lov_history)").fetchall()
+        }
+        if "reason" not in existing:
+            con.execute(
+                "ALTER TABLE lov_history ADD COLUMN reason TEXT NOT NULL DEFAULT ''"
+            )
 
 
 def get_custom_lovs() -> list[dict]:
@@ -96,7 +104,7 @@ def add_custom_lov(attribute: str, key: str, description: str, user: str) -> dic
     }
 
 
-def delete_custom_lov(entry_id: str, user: str) -> bool:
+def delete_custom_lov(entry_id: str, user: str, reason: str = "") -> bool:
     with _conn() as con:
         row = con.execute(
             "SELECT * FROM custom_lovs WHERE id=?", (entry_id,)
@@ -105,8 +113,8 @@ def delete_custom_lov(entry_id: str, user: str) -> bool:
             return False
         con.execute("DELETE FROM custom_lovs WHERE id=?", (entry_id,))
         con.execute(
-            "INSERT INTO lov_history (id, action, attribute, key, description, user, ts) "
-            "VALUES (?,?,?,?,?,?,?)",
+            "INSERT INTO lov_history (id, action, attribute, key, description, user, ts, reason) "
+            "VALUES (?,?,?,?,?,?,?,?)",
             (
                 str(uuid.uuid4()),
                 "delete",
@@ -115,6 +123,7 @@ def delete_custom_lov(entry_id: str, user: str) -> bool:
                 row["description"],
                 user,
                 time.time(),
+                reason.strip(),
             ),
         )
     return True

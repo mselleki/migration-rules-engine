@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
+  AlertTriangle,
   Search,
   X,
   Copy,
@@ -373,11 +374,114 @@ function HistoryModal({ history, loading, onClose }) {
                     <p className="text-[10px] text-slate-400 mt-0.5">
                       {entry.user} · {timeAgo(entry.ts)}
                     </p>
+                    {entry.action === "delete" && entry.reason && (
+                      <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-0.5 italic">
+                        {entry.reason}
+                      </p>
+                    )}
                   </div>
                 </li>
               ))}
             </ul>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Delete confirmation modal ───────────────────────────────────────────────
+
+const DELETE_REASONS = ["Request of Business", "Old placeholder", "Other"];
+
+function DeleteConfirmModal({ entry, onConfirm, onClose }) {
+  const [reason, setReason] = useState("");
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xl w-full max-w-sm mx-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+          <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
+            Delete LOV entry
+          </span>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-5 py-4 space-y-4">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            You are about to permanently delete:
+            <br />
+            <span className="font-medium text-slate-800 dark:text-slate-200">
+              {entry.attribute}
+            </span>
+            {" - "}
+            <span className="font-mono text-brand-600 dark:text-brand-400">
+              {entry.key}
+            </span>
+          </p>
+
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-slate-600 dark:text-slate-400">
+              Reason
+            </p>
+            {DELETE_REASONS.map((r) => (
+              <label
+                key={r}
+                className="flex items-center gap-2.5 cursor-pointer group"
+              >
+                <input
+                  type="radio"
+                  name="del-reason"
+                  value={r}
+                  checked={reason === r}
+                  onChange={() => setReason(r)}
+                  className="accent-brand-500"
+                />
+                <span className="text-sm text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors">
+                  {r}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end gap-2 px-5 py-4 border-t border-slate-100 dark:border-slate-800">
+          <button
+            onClick={onClose}
+            className="h-8 px-3 rounded text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            disabled={!reason}
+            onClick={() => onConfirm(reason)}
+            className="h-8 px-3 rounded bg-red-500 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
+          >
+            Delete
+          </button>
         </div>
       </div>
     </div>
@@ -453,11 +557,14 @@ export default function LovExplorer() {
     setRefreshKey((k) => k + 1);
   };
 
-  const handleDeleteLov = async (entryId) => {
+  const [pendingDelete, setPendingDelete] = useState(null);
+
+  const confirmDelete = async (reason) => {
     await fetch(
-      `${API}/lovs/custom/${entryId}?user=${encodeURIComponent(name)}`,
+      `${API}/lovs/custom/${pendingDelete.id}?user=${encodeURIComponent(name)}&reason=${encodeURIComponent(reason)}`,
       { method: "DELETE" },
     );
+    setPendingDelete(null);
     setRefreshKey((k) => k + 1);
   };
 
@@ -832,7 +939,13 @@ export default function LovExplorer() {
                         <span className="truncate">{row.description}</span>
                         {isDet && isCustom && (
                           <button
-                            onClick={() => handleDeleteLov(row.id)}
+                            onClick={() =>
+                              setPendingDelete({
+                                id: row.id,
+                                attribute: row.attribute,
+                                key: row.key,
+                              })
+                            }
                             title={`Delete (added by ${row.added_by})`}
                             className="flex-shrink-0 opacity-0 group-hover:opacity-100 p-0.5 rounded text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
                           >
@@ -862,6 +975,13 @@ export default function LovExplorer() {
           history={history}
           loading={historyLoading}
           onClose={() => setShowHistory(false)}
+        />
+      )}
+      {pendingDelete && (
+        <DeleteConfirmModal
+          entry={pendingDelete}
+          onConfirm={confirmDelete}
+          onClose={() => setPendingDelete(null)}
         />
       )}
     </div>
