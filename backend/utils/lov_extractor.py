@@ -205,34 +205,34 @@ def get_hardcoded_lovs() -> pd.DataFrame:
 
     # Customer Group
     for code, desc in [
-        ("BRAKES", "Brakes"),
-        ("COUNTRY_CHOICE", "Country Choice"),
+        ("Brakes", "BRAKES"),
+        ("Country Choice", "COUNTRY_CHOICE"),
         ("BCE", "BCE"),
         ("KFF", "KFF"),
-        ("FRESH_DIRECT", "Fresh Direct"),
-        ("MEDINA", "Medina"),
-        ("SYSCO_ROI", "Sysco ROI"),
-        ("SYSCO_NI", "Sysco NI"),
-        ("CLASSIC_DRINKS", "Classic Drinks"),
-        ("READY_CHEF", "Ready Chef"),
-        ("MENIGO", "Menigo"),
-        ("SERVICESTYCKARNA", "Servicestyckarna"),
-        ("FRUKTSERVICE", "Fruktservice"),
-        ("EKOFISK", "Ekofisk"),
-        ("SYSCO_FRANCE", "Sysco France"),
+        ("Fresh Direct", "FRESH_DIRECT"),
+        ("Medina", "MEDINA"),
+        ("Sysco ROI", "SYSCO_ROI"),
+        ("Sysco NI", "SYSCO_NI"),
+        ("Classic Drinks", "CLASSIC_DRINKS"),
+        ("Ready Chef", "READY_CHEF"),
+        ("Menigo", "MENIGO"),
+        ("Servicestyckarna", "SERVICESTYCKARNA"),
+        ("Fruktservice", "FRUKTSERVICE"),
+        ("Ekofisk", "EKOFISK"),
+        ("Sysco France", "SYSCO_FRANCE"),
         ("LAG", "LAG"),
     ]:
         add("Customer Group", code, desc)
 
     # Division
     for code, desc in [
-        ("TRS", "Territory Street Accounts"),
-        ("TRP", "Territory Program"),
-        ("LCC", "Local Contract Customer"),
-        ("CMU", "Corporate Multi Unit"),
-        ("OTH", "Bid & Other"),
-        ("WHL", "Wholesale"),
-        ("MIS", "Miscellaneous"),
+        ("Territory Street Accounts", "TRS"),
+        ("Territory Program", "TRP"),
+        ("Local Contract Customer", "LCC"),
+        ("Corporate Multi Unit", "CMU"),
+        ("Bid & Other", "OTH"),
+        ("Wholesale", "WHL"),
+        ("Miscellaneous", "MIS"),
     ]:
         add("Division", code, desc)
 
