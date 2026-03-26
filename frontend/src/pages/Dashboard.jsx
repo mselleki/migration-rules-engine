@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+﻿import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useHistory } from "../context/HistoryContext.jsx";
 import { Card, CardContent, CardHeader } from "../components/ui/card.jsx";
@@ -17,7 +17,7 @@ import {
 const DOMAINS = ["Product", "Vendor", "Customer"];
 
 function fmt(iso) {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const d = new Date(iso);
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) +
     "  " + d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
@@ -62,7 +62,7 @@ function KpiStrip({ runs }) {
 function StatusCell({ run, onClick }) {
   if (!run) return (
     <td onClick={onClick} className="px-4 py-2.5 text-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-      <span className="text-slate-300 dark:text-slate-600 text-xs">—</span>
+      <span className="text-slate-300 dark:text-slate-600 text-xs">-</span>
     </td>
   );
   const ok = run.total_errors === 0;
@@ -84,7 +84,7 @@ function latestRun(runs, domain, entity) {
 const columns = [
   { accessorKey: "timestamp",    header: "Date",          cell: i => <span className="text-slate-500 tabular-nums">{fmt(i.getValue())}</span> },
   { accessorKey: "domain",       header: "Domain",        cell: i => <Badge variant="secondary">{i.getValue()}</Badge> },
-  { accessorKey: "legal_entity", header: "Legal Entity",  cell: i => <span className="font-medium">{i.getValue() || "—"}</span> },
+  { accessorKey: "legal_entity", header: "Legal Entity",  cell: i => <span className="font-medium">{i.getValue() || "-"}</span> },
   { accessorKey: "total_rows",   header: "Rows",          cell: i => <span className="tabular-nums">{i.getValue()}</span> },
   {
     accessorKey: "total_errors",

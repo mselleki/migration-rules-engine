@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+﻿import { useState, useMemo } from "react";
 import { FileSpreadsheet, CheckCircle2, Clock, ChevronDown, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader } from "../components/ui/card.jsx";
 import { Badge } from "../components/ui/badge.jsx";
@@ -26,7 +26,7 @@ const CHIP_DEFAULT = "bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-sla
 
 const DOMAINS = {
   Products: {
-    description: "Product master data — global attributes and market-specific local data.",
+    description: "Product master data - global attributes and market-specific local data.",
     templates: [
       {
         name: "Global Product Data",
@@ -125,7 +125,7 @@ const DOMAINS = {
           "Split UOM": "Business",
           "Catch Weight": "Business", "Does Product Have A Taric Code?": "Business",
           "Nutritional Unit": "Business", "Product Warranty Code": "Business",
-          // LOV — yes/no
+          // LOV - yes/no
           "Dairy Free": "LOV", "Gluten Free": "LOV", "Halal": "LOV", "Kosher": "LOV",
           "Organic": "LOV", "Vegan": "LOV", "Vegetarian": "LOV",
           "Biodegradable or Compostable": "LOV", "Recyclable": "LOV",
@@ -249,7 +249,7 @@ const DOMAINS = {
   },
 
   Vendors: {
-    description: "Vendor master data — financial and operational setup per legal entity.",
+    description: "Vendor master data - financial and operational setup per legal entity.",
     templates: [
       {
         name: "Invoice",
@@ -318,7 +318,7 @@ const DOMAINS = {
           { id: "V-L5",  type: "LOV",      desc: "Incoterms: CFR, CIF, CIP, CPT, DAP, DDP, DPU, EXW, FAS, FCA, FOB",                                                                                                                   cols: ["Delivery Terms"] },
           { id: "V-L6",  type: "LOV",      desc: "23 codes: 3PL, AIR, AMB_TRK, ANY, BACK_HAUL, BICYCLE, BOAT, BULK_CRR, COLD_STRG, CONSOL, CONT_SHIP, COURIER, CROSS_DOCK, CUST_COLL, DIRECT, DRON_DLV, FROZ_TRK, INTERMOD, PICKUP, PIPELINE, REFR_TRK, TRAIN, TRUCK", cols: ["Mode of Delivery"] },
           { id: "V-L7",  type: "LOV",      desc: "Active / Delisted / Archived",                                                                                                                                                        cols: ["Status"] },
-          { id: "V-L14", type: "LOV",      desc: "Valid ID from reference/Buyer Group.xlsx (same LOV as Local Product Data — Item Buyer Group)",                                                                                         cols: ["Buyer Group"] },
+          { id: "V-L14", type: "LOV",      desc: "Valid ID from reference/Buyer Group.xlsx (same LOV as Local Product Data - Item Buyer Group)",                                                                                         cols: ["Buyer Group"] },
           { id: "V-L15", type: "LOV",      desc: "IW001 (Local Isle of Wight), MK001 (Millbrook), EK001 (Ekofisk)",                                                                                                                     cols: ["Warehouse Code"] },
         ],
       },
@@ -326,7 +326,7 @@ const DOMAINS = {
   },
 
   Customers: {
-    description: "Customer master data — 7 templates covering financial and delivery setup.",
+    description: "Customer master data - 7 templates covering financial and delivery setup.",
     templates: [
       {
         name: "PT",
@@ -409,7 +409,7 @@ const DOMAINS = {
           { id: "C-F2",  type: "Format",   desc: "≤20 chars, no spaces, approved chars only",                                                                                                                  cols: ["Search Name  - Delivery"] },
           { id: "C-B3",  type: "Business", desc: "If First Name and Last Name are both filled (employee) → Ordering/Shipping Customer Name, Legal Name - Delivery, Search Name - Delivery must be empty",      cols: ["First Name","Last Name","Ordering/Shipping Customer Name","Legal Name - Delivery","Search Name  - Delivery"] },
           { id: "C-L25", type: "LOV",      desc: "EDU (Education), HEA (Healthcare), LOD (Lodging), NTR (Non Trade), OTH (Other Food Locations), REC (Recreation), RES (Restaurant), PUB (Pubs & Bars), RET (Retail Food), MISC (Miscellaneous)", cols: ["Segment"] },
-          { id: "C-L26", type: "LOV",      desc: "83 subsegment codes — E10–E24, H10–H40, L10–L50, N10–N50, O10–O65, S05–S65, R05–R25, P30–P31, T05–T50, M0", cols: ["Subsegment"] },
+          { id: "C-L26", type: "LOV",      desc: "83 subsegment codes - E10–E24, H10–H40, L10–L50, N10–N50, O10–O65, S05–S65, R05–R25, P30–P31, T05–T50, M0", cols: ["Subsegment"] },
         ],
       },
       {
@@ -521,7 +521,7 @@ function TemplateCard({ tmpl }) {
 
   return (
     <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-      {/* Header — clickable when there are rules */}
+      {/* Header - clickable when there are rules */}
       <button
         onClick={() => hasRules && setOpen(v => !v)}
         className={[

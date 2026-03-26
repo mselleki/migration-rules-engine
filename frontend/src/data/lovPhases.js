@@ -1,4 +1,4 @@
-// Static phase classification for LOV attributes.
+﻿// Static phase classification for LOV attributes.
 // MVP → P1 → P2 (anything not listed is Phase 2 by default).
 
 const MVP_ATTRS = new Set([
@@ -21,7 +21,7 @@ const MVP_ATTRS = new Set([
   "Proprietary Product",
   "Split Product",
   "Legally packaged to be sold as a split?",
-  // ── Vendor — Invoice ──
+  // ── Vendor - Invoice ──
   "Company Registration Number",
   "VAT",
   "Address Line 1",
@@ -32,16 +32,16 @@ const MVP_ATTRS = new Set([
   "Country",
   "Currency Code",
   "Payment Terms",
-  // ── Customer — Invoice ──
+  // ── Customer - Invoice ──
   "Customer Type",
   "Is Customer a Registered Company?",
   "CRN",
-  // ── Customer — Employee Invoice ──
+  // ── Customer - Employee Invoice ──
   "Employee Number",
 ]);
 
 const PHASE1_ATTRS = new Set([
-  // ── Vendor — Invoice ──
+  // ── Vendor - Invoice ──
   "Method of Payment",
   "VAT Group",
   "Known As Name",
@@ -54,7 +54,7 @@ const PHASE1_ATTRS = new Set([
   "Vendor Status",
   "Intercompany/Trading Partner",
   "Duty Paid/Bond",
-  // ── Vendor — OrderingShipping ──
+  // ── Vendor - OrderingShipping ──
   "Delivery Terms",
   "Mode of Delivery",
   "Mode Of Delivery", // Customer variant capitalisation
@@ -64,7 +64,7 @@ const PHASE1_ATTRS = new Set([
   "Nominated Vendor",
   "Vendor Managed Inventory (VMI)",
   "Facility Registration Number",
-  // ── Customer — Invoice ──
+  // ── Customer - Invoice ──
   "Limited Address",
   "Customer Status",
   "Reference Code",
@@ -78,7 +78,7 @@ const PHASE1_ATTRS = new Set([
   "Customer Master - Legal Entity Level",
   "Customer Master - Europe",
   "Division",
-  // ── Customer — OrderingShipping + Employee ──
+  // ── Customer - OrderingShipping + Employee ──
   "Segment",
   "Subsegment",
   "Sales District",

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+﻿import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { Upload, X, FileSpreadsheet, AlertCircle, GitCompare, Eye, EyeOff } from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Card, CardContent, CardHeader } from "../components/ui/card.jsx";
@@ -31,7 +31,7 @@ function safeStr(v) {
 }
 
 // ---------------------------------------------------------------------------
-// FileDropZone — same style as Validator.jsx
+// FileDropZone - same style as Validator.jsx
 // ---------------------------------------------------------------------------
 
 function FileDropZone({ label, file, onFile }) {
@@ -49,7 +49,7 @@ function FileDropZone({ label, file, onFile }) {
     <div
       role="button"
       tabIndex={0}
-      aria-label={`${label} — drop zone`}
+      aria-label={`${label} - drop zone`}
       onClick={() => !file && inputRef.current.click()}
       onKeyDown={e => e.key === "Enter" && inputRef.current.click()}
       onDragOver={e => { e.preventDefault(); setDragging(true); }}
@@ -184,7 +184,7 @@ function DiffTable({ result }) {
       );
     }
     const cell = row.cells[col];
-    if (!cell) return <span className="text-slate-300 dark:text-slate-700">—</span>;
+    if (!cell) return <span className="text-slate-300 dark:text-slate-700">-</span>;
 
     if (cell.changed) {
       const oldStr = safeStr(cell.old);
@@ -193,7 +193,7 @@ function DiffTable({ result }) {
         <span className="inline-block rounded px-1 py-0.5 bg-warning-50 dark:bg-yellow-900/20 text-xs">
           {oldStr && <span className="text-danger-500 line-through mr-1">{oldStr}</span>}
           {newStr && <span className="text-success-600 dark:text-green-400">{newStr}</span>}
-          {!oldStr && !newStr && <span className="text-slate-400">—</span>}
+          {!oldStr && !newStr && <span className="text-slate-400">-</span>}
         </span>
       );
     }
@@ -206,7 +206,7 @@ function DiffTable({ result }) {
 
     return (
       <span className="text-xs text-slate-700 dark:text-slate-300 truncate">
-        {displayVal || <span className="text-slate-300 dark:text-slate-700">—</span>}
+        {displayVal || <span className="text-slate-300 dark:text-slate-700">-</span>}
       </span>
     );
   }

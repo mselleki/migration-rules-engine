@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
   AlertCircle,
@@ -324,7 +324,7 @@ function presenceCell(val) {
   return val === "X" ? (
     <span className="text-success-600 dark:text-success-400 font-bold">✓</span>
   ) : (
-    <span className="text-slate-300 dark:text-slate-600">—</span>
+    <span className="text-slate-300 dark:text-slate-600">-</span>
   );
 }
 
@@ -429,7 +429,7 @@ function ReconcTable({ rows, codeKey, erpName }) {
   if (rows.length === 0)
     return (
       <p className="py-6 text-center text-sm text-slate-400">
-        No data — check SharePoint configuration or uploaded files.
+        No data - check SharePoint configuration or uploaded files.
       </p>
     );
 
@@ -678,7 +678,7 @@ function ConfigWarnings({ markets, domain }) {
     const d = status[m][domain];
     if (!d) continue;
     for (const src of ["ct", "erp", "stibo"]) {
-      if (!d[src]) missing.push(`${m} — ${src.toUpperCase()} ${domain}`);
+      if (!d[src]) missing.push(`${m} - ${src.toUpperCase()} ${domain}`);
     }
   }
 
@@ -688,7 +688,7 @@ function ConfigWarnings({ markets, domain }) {
     <div className="rounded-md border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20 px-3 py-2 space-y-0.5">
       <p className="text-xs font-medium text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
         <AlertTriangle className="h-3.5 w-3.5" />
-        SharePoint URLs not yet configured — these sources will return 0 codes:
+        SharePoint URLs not yet configured - these sources will return 0 codes:
       </p>
       <ul className="mt-1 space-y-0.5">
         {missing.map((m) => (
@@ -1003,7 +1003,7 @@ function RunTab({ prefill }) {
             </div>
           </div>
 
-          {/* Market — locked for market users, multi-select for DET */}
+          {/* Market - locked for market users, multi-select for DET */}
           {isMarket ? (
             <div className="space-y-1">
               <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
@@ -1020,7 +1020,7 @@ function RunTab({ prefill }) {
                     </span>
                   ))
                 ) : (
-                  <span className="text-sm text-slate-400">—</span>
+                  <span className="text-sm text-slate-400">-</span>
                 )}
               </div>
             </div>
@@ -1063,7 +1063,7 @@ function RunTab({ prefill }) {
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-success-500" />
             <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-              Results — {result.domain} Range — {result.markets?.join(", ")}
+              Results - {result.domain} Range - {result.markets?.join(", ")}
             </span>
             <StatusBadge status={result.status} />
           </div>

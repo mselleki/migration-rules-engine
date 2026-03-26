@@ -1,5 +1,5 @@
-/**
- * Shared validation run history — persisted in localStorage.
+﻿/**
+ * Shared validation run history - persisted in localStorage.
  * Each run stores summary data (not the full errors list, which can be huge).
  */
 import { createContext, useCallback, useContext, useState } from "react";

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+﻿import { useState, useRef, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { Upload, X, FileSpreadsheet, AlertCircle, CheckCircle2, Download } from "lucide-react";
 import { useHistory } from "../context/HistoryContext.jsx";
@@ -76,7 +76,7 @@ function FileDropZone({ label, file, onFile }) {
     <div
       role="button"
       tabIndex={0}
-      aria-label={`${label} — drop zone`}
+      aria-label={`${label} - drop zone`}
       onClick={() => !file && inputRef.current.click()}
       onKeyDown={e => e.key === "Enter" && inputRef.current.click()}
       onDragOver={e => { e.preventDefault(); setDragging(true); }}
@@ -354,7 +354,7 @@ export default function Validator() {
                   >
                     <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${run.total_errors === 0 ? "bg-success-500" : "bg-danger-500"}`} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-slate-700 dark:text-slate-300 truncate">{run.legal_entity || "—"}</p>
+                      <p className="text-sm text-slate-700 dark:text-slate-300 truncate">{run.legal_entity || "-"}</p>
                       <p className="text-xs text-slate-400">{run.domain} · {fmt(run.timestamp)}</p>
                     </div>
                     <Badge variant={run.total_errors === 0 ? "success" : "danger"} className="flex-shrink-0 tabular-nums">
@@ -444,7 +444,7 @@ export default function Validator() {
                   <CardContent>
                     {report.errors.length === 0 ? (
                       <div className="flex items-center gap-2.5 rounded-md border border-success-100 dark:border-green-800/40 bg-success-50 dark:bg-green-900/20 px-4 py-3 text-sm text-success-500 dark:text-green-400">
-                        <CheckCircle2 className="h-4 w-4 flex-shrink-0" /> All rules passed — no errors found.
+                        <CheckCircle2 className="h-4 w-4 flex-shrink-0" /> All rules passed - no errors found.
                       </div>
                     ) : (
                       <ErrorTable errors={report.errors} />

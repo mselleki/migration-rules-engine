@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+﻿import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   Search,
@@ -361,7 +361,7 @@ function HistoryModal({ history, loading, onClose }) {
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed">
                       <span className="font-medium">{entry.attribute}</span>
-                      {" — "}
+                      {" - "}
                       <span className="font-mono">{entry.key}</span>
                       {entry.description && (
                         <span className="text-slate-400">

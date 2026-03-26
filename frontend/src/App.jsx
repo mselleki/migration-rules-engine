@@ -1,4 +1,4 @@
-import {
+﻿import {
   BrowserRouter,
   NavLink,
   Route,
@@ -55,7 +55,7 @@ const NAV_BASE = [
     to: "/reconciliations",
     label: "Reconciliations",
     icon: Layers2,
-    desc: "Compare SharePoint Tracker data with STIBO — range and attribute reconciliation (incl. legal-entity rules where needed).",
+    desc: "Compare SharePoint Tracker data with STIBO - range and attribute reconciliation (incl. legal-entity rules where needed).",
   },
   {
     to: "/lov-explorer",
@@ -73,7 +73,7 @@ const NAV_MIGRATIONS_MENU = {
       to: "/migrations",
       label: "Rules",
       icon: Scale,
-      desc: "Validation rules and template coverage by domain — which columns are checked and how.",
+      desc: "Validation rules and template coverage by domain - which columns are checked and how.",
     },
     {
       to: "/validator",

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import {
   Building2,
   ChevronDown,
@@ -213,7 +213,7 @@ export default function LoginScreen() {
               ))}
             </div>
 
-            {/* Password field — DET only */}
+            {/* Password field - DET only */}
             {selected === "det" && (
               <form onSubmit={handlePasswordSubmit} className="mt-4 space-y-3">
                 <div className="relative">

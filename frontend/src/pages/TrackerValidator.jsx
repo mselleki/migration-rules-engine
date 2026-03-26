@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo, useEffect } from "react";
+﻿import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import {
   Upload,
   X,
@@ -46,14 +46,14 @@ function resolveIdColumn(domain, allCols) {
 }
 
 // ---------------------------------------------------------------------------
-// Mock data — preview only, never sent to the API
+// Mock data - preview only, never sent to the API
 // ---------------------------------------------------------------------------
 const MOCK_REPORT = {
   summary: {
     total_rows: 847,
     total_errors: 18,
     errors_by_rule: {
-      "LOV — invalid value": 9,
+      "LOV - invalid value": 9,
       "Required field missing": 6,
       "Format error": 3,
     },
@@ -64,7 +64,7 @@ const MOCK_REPORT = {
       sheet: "Global Product Data",
       row: 12,
       supc: "7821043",
-      rule: "LOV — invalid value",
+      rule: "LOV - invalid value",
       message: "Brand 'MONOPRIX' is not a recognised value.",
     },
     {
@@ -78,7 +78,7 @@ const MOCK_REPORT = {
       sheet: "Global Product Data",
       row: 67,
       supc: "7867554",
-      rule: "LOV — invalid value",
+      rule: "LOV - invalid value",
       message: "Case UOM 'BOITE' is not a recognised value.",
     },
     {
@@ -99,7 +99,7 @@ const MOCK_REPORT = {
       sheet: "Global Product Data",
       row: 145,
       supc: "7845678",
-      rule: "LOV — invalid value",
+      rule: "LOV - invalid value",
       message: "Product Status 'OBSOLETE' is not a recognised value.",
     },
     {
@@ -113,7 +113,7 @@ const MOCK_REPORT = {
       sheet: "Global Product Data",
       row: 203,
       supc: "7803456",
-      rule: "LOV — invalid value",
+      rule: "LOV - invalid value",
       message: "Sysco Brand 'YES' is not a recognised value. Expected Y or N.",
     },
     {
@@ -127,7 +127,7 @@ const MOCK_REPORT = {
       sheet: "Global Product Data",
       row: 256,
       supc: "7856123",
-      rule: "LOV — invalid value",
+      rule: "LOV - invalid value",
       message: "Catch Weight 'OUI' is not a recognised value. Expected Y or N.",
     },
     {
@@ -141,7 +141,7 @@ const MOCK_REPORT = {
       sheet: "Global Product Data",
       row: 378,
       supc: "7878432",
-      rule: "LOV — invalid value",
+      rule: "LOV - invalid value",
       message: "Storage Area 'SURGELE' is not a recognised value.",
     },
     {
@@ -155,7 +155,7 @@ const MOCK_REPORT = {
       sheet: "Global Product Data",
       row: 445,
       supc: "7845901",
-      rule: "LOV — invalid value",
+      rule: "LOV - invalid value",
       message:
         "Biodegradable or Compostable 'MAYBE' is not a recognised value.",
     },
@@ -170,14 +170,14 @@ const MOCK_REPORT = {
       sheet: "Global Product Data",
       row: 534,
       supc: "7834890",
-      rule: "LOV — invalid value",
+      rule: "LOV - invalid value",
       message: "Recyclable 'OUI' is not a recognised value. Expected Y or N.",
     },
     {
       sheet: "Global Product Data",
       row: 612,
       supc: "7812345",
-      rule: "LOV — invalid value",
+      rule: "LOV - invalid value",
       message:
         "Split Product 'MAYBE' is not a recognised value. Expected Y or N.",
     },
@@ -867,7 +867,7 @@ function CompletionPanel({ completion }) {
                       {pStyle.label}
                     </span>
                   ) : (
-                    <span className="text-[10px] text-slate-400">—</span>
+                    <span className="text-[10px] text-slate-400">-</span>
                   )}
                 </div>
                 <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
@@ -1122,7 +1122,7 @@ function DataGridPanel({ rows, errors, domain = "Products" }) {
                               : "text-slate-700 dark:text-slate-300",
                           ].join(" ")}
                         >
-                          {isEmpty ? "—" : String(val)}
+                          {isEmpty ? "-" : String(val)}
                         </td>
                       );
                     })}
@@ -1458,7 +1458,7 @@ export default function TrackerValidator() {
         )}
       </div>
 
-      {/* Upload fallback — shown inline when domain not configured */}
+      {/* Upload fallback - shown inline when domain not configured */}
       {!isConfigured && !mockMode && (
         <div className="flex items-end gap-3 flex-wrap">
           <div className="flex-1 min-w-[240px] max-w-sm">
@@ -1497,7 +1497,7 @@ export default function TrackerValidator() {
         </div>
       )}
 
-      {/* Results — full width */}
+      {/* Results - full width */}
       <div>
         {mockMode && (
           <div>
@@ -1505,7 +1505,7 @@ export default function TrackerValidator() {
               <span className="px-1.5 py-px rounded bg-amber-100 dark:bg-amber-900/30 font-medium text-[10px] uppercase tracking-wide">
                 Mock
               </span>
-              <span>Sample data — not connected to SharePoint</span>
+              <span>Sample data - not connected to SharePoint</span>
             </div>
             <ResultsBlock report={MOCK_REPORT} error={null} domain={domain} />
           </div>
