@@ -51,6 +51,12 @@ def set_result(domain: str, report: dict) -> None:
         "updated_at": time.time(),
     }
     _persist()
+    try:
+        import tracker_history
+
+        tracker_history.record(domain, report)
+    except Exception:
+        pass  # non-fatal
 
 
 def set_error(domain: str, error: str) -> None:

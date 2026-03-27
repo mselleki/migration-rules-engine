@@ -46,6 +46,7 @@ from lov_store import (
     get_history as get_lov_history,
 )
 import tracker_cache
+import tracker_history
 import tracker_config
 import reconciliation_config
 import reconcile_store
@@ -144,6 +145,7 @@ OUTPUT_DIR = Path(__file__).resolve().parent.parent / "output"
 
 init_db()  # LOV SQLite tables
 reconcile_store.init_db()  # reconciliation history table
+tracker_history.init_db()  # tracker completion snapshots
 
 # ---------------------------------------------------------------------------
 # LOV cache — reference data loaded once at startup
@@ -518,6 +520,11 @@ def get_tracker_dashboard():
             "cached": tracker_cache.get(domain),
         }
     return result
+
+
+@app.get("/tracker/history")
+def get_tracker_history(domain: str, limit: int = 90):
+    return tracker_history.get_history(domain, limit)
 
 
 @app.post("/tracker/refresh")

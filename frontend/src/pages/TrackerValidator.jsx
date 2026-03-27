@@ -7,6 +7,15 @@ import {
   CheckCircle2,
   RefreshCw,
 } from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  ResponsiveContainer,
+} from "recharts";
 import { Card, CardContent, CardHeader } from "../components/ui/card.jsx";
 import { Badge } from "../components/ui/badge.jsx";
 import { Button } from "../components/ui/button.jsx";
@@ -638,6 +647,206 @@ function FileDropZone({ label, file, onFile }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Mock history for preview mode
+// ---------------------------------------------------------------------------
+const MOCK_HISTORY = (() => {
+  const now = Date.now() / 1000;
+  const DAY = 86400;
+  return [
+    { ts: now - DAY * 27, pct_complete: 0.41, total_attrs: 48, uncleansed: 28 },
+    { ts: now - DAY * 21, pct_complete: 0.48, total_attrs: 48, uncleansed: 25 },
+    { ts: now - DAY * 14, pct_complete: 0.56, total_attrs: 48, uncleansed: 21 },
+    { ts: now - DAY * 9, pct_complete: 0.62, total_attrs: 48, uncleansed: 18 },
+    { ts: now - DAY * 5, pct_complete: 0.69, total_attrs: 48, uncleansed: 15 },
+    { ts: now - DAY * 2, pct_complete: 0.73, total_attrs: 48, uncleansed: 13 },
+  ];
+})();
+
+// --- Progress card ---
+
+function KpiTile({
+  label,
+  value,
+  accentClass = "text-slate-800 dark:text-slate-100",
+}) {
+  return (
+    <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+      <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">{label}</p>
+      <p className={`text-xl font-semibold tabular-nums ${accentClass}`}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function ProgressCard({ completion, domain, mockHistory }) {
+  const [history, setHistory] = useState([]);
+  const [target, setTarget] = useState(
+    () => localStorage.getItem(`trackerTarget_${domain}`) || "",
+  );
+
+  useEffect(() => {
+    setTarget(localStorage.getItem(`trackerTarget_${domain}`) || "");
+    if (mockHistory) {
+      setHistory(mockHistory);
+      return;
+    }
+    fetch(`${API}/tracker/history?domain=${encodeURIComponent(domain)}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setHistory)
+      .catch(() => {});
+  }, [domain, mockHistory]);
+
+  const stats = useMemo(() => {
+    if (!completion?.length) return null;
+    let total = 0;
+    let uncleansed = 0;
+    for (const sheet of completion) {
+      for (const col of sheet.columns ?? []) {
+        total++;
+        if ((col.rate ?? 1) < 1.0) uncleansed++;
+      }
+    }
+    const pct =
+      total > 0 ? Math.round(((total - uncleansed) / total) * 100) : 0;
+    return { total, uncleansed, pct };
+  }, [completion]);
+
+  const chartData = useMemo(
+    () =>
+      history.map((h) => ({
+        date: new Date(h.ts * 1000).toLocaleDateString("en-GB", {
+          month: "short",
+          day: "numeric",
+        }),
+        pct: Math.round(h.pct_complete * 100),
+      })),
+    [history],
+  );
+
+  const daysLeft = useMemo(() => {
+    if (!target) return null;
+    return Math.ceil((new Date(target) - new Date()) / 86400000);
+  }, [target]);
+
+  if (!stats) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+          Progress Overview
+        </span>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* KPI tiles */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <KpiTile
+            label="% Complete"
+            value={`${stats.pct}%`}
+            accentClass="text-brand-500"
+          />
+          <KpiTile label="Total to Cleanse" value={stats.total} />
+          <KpiTile
+            label="Uncleansed Attributes"
+            value={stats.uncleansed}
+            accentClass={
+              stats.uncleansed === 0
+                ? "text-emerald-500"
+                : stats.uncleansed > 10
+                  ? "text-red-500"
+                  : "text-amber-500"
+            }
+          />
+          {/* Target date tile */}
+          <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">
+              Complete Cleansing by
+            </p>
+            <input
+              type="date"
+              value={target}
+              onChange={(e) => {
+                setTarget(e.target.value);
+                localStorage.setItem(`trackerTarget_${domain}`, e.target.value);
+              }}
+              className="text-sm font-semibold text-slate-800 dark:text-slate-100 bg-transparent w-full focus:outline-none cursor-pointer"
+            />
+            {daysLeft !== null && (
+              <p
+                className={`text-xs mt-1 ${
+                  daysLeft < 0
+                    ? "text-red-500"
+                    : daysLeft < 14
+                      ? "text-amber-500"
+                      : "text-slate-400"
+                }`}
+              >
+                {daysLeft < 0
+                  ? `${Math.abs(daysLeft)}d overdue`
+                  : `${daysLeft}d remaining`}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Chart */}
+        <div>
+          <p className="text-xs text-slate-400 mb-2">
+            Cleansing progress over time
+          </p>
+          {chartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={130}>
+              <LineChart
+                data={chartData}
+                margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="rgba(148,163,184,0.15)"
+                />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 10, fill: "currentColor" }}
+                  axisLine={false}
+                  tickLine={false}
+                  className="text-slate-400"
+                />
+                <YAxis
+                  domain={[0, 100]}
+                  tick={{ fontSize: 10, fill: "currentColor" }}
+                  axisLine={false}
+                  tickLine={false}
+                  unit="%"
+                  width={34}
+                  className="text-slate-400"
+                />
+                <Tooltip
+                  formatter={(v) => [`${v}%`, "Complete"]}
+                  contentStyle={{ fontSize: 11 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="pct"
+                  stroke="#6366f1"
+                  strokeWidth={2}
+                  dot={{ r: 3, fill: "#6366f1" }}
+                  activeDot={{ r: 5 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-xs text-slate-400 text-center py-4">
+              Chart will build up as you refresh the tracker
+            </p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // --- Results table ---
 
 const errorColumns = [
@@ -1162,13 +1371,22 @@ function timeAgo(ts) {
 
 // --- Results block (shared between live and cached) ---
 
-function ResultsBlock({ report, error, domain = "Products" }) {
+function ResultsBlock({ report, error, domain = "Products", mockHistory }) {
   const totalErrors = report?.summary?.total_errors ?? 0;
   const totalRows = report?.summary?.total_rows ?? 0;
   const errorsByRule = report?.summary?.errors_by_rule ?? {};
 
   return (
     <div className="space-y-4">
+      {/* Progress overview */}
+      {report?.completion?.length > 0 && (
+        <ProgressCard
+          completion={report.completion}
+          domain={domain}
+          mockHistory={mockHistory}
+        />
+      )}
+
       {error && (
         <div className="flex items-start gap-2.5 rounded-md border border-danger-100 dark:border-red-800/40 bg-danger-50 dark:bg-red-900/20 px-4 py-3 text-sm text-danger-700 dark:text-red-400">
           <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
@@ -1490,7 +1708,12 @@ export default function TrackerValidator() {
               </span>
               <span>Sample data - not connected to SharePoint</span>
             </div>
-            <ResultsBlock report={MOCK_REPORT} error={null} domain={domain} />
+            <ResultsBlock
+              report={MOCK_REPORT}
+              error={null}
+              domain={domain}
+              mockHistory={MOCK_HISTORY}
+            />
           </div>
         )}
 
