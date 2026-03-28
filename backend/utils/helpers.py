@@ -1,6 +1,13 @@
 """Shared utility functions for the migration rules engine."""
 
+from contextvars import ContextVar
+
 import pandas as pd
+
+# 1-based Excel row of the first data row (default: row 2 — header on row 1).
+_excel_first_data_row: ContextVar[int] = ContextVar(
+    "_excel_first_data_row", default=2
+)
 
 
 def is_empty(value) -> bool:
@@ -34,5 +41,15 @@ def get_supc(row_data: pd.Series) -> str:
 
 
 def excel_row(df_index: int) -> int:
-    """Convert a 0-based DataFrame index to an Excel row number (1-based header + data)."""
-    return df_index + 2
+    """Map 0-based DataFrame row index to 1-based Excel row (uses first-data-row context)."""
+    return _excel_first_data_row.get() + df_index
+
+
+def push_excel_first_data_row(row_1based: int):
+    """Set the Excel row number (1-based) of the first data row; returns token for reset."""
+    return _excel_first_data_row.set(row_1based)
+
+
+def reset_excel_first_data_row(token) -> None:
+    """Restore previous first-data-row after push_excel_first_data_row."""
+    _excel_first_data_row.reset(token)

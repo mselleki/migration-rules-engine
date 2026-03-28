@@ -1733,6 +1733,53 @@ ALLERGEN_COLS = [
 ALLERGEN_STATUS_LOV = {"Contains", "May Contain", "Does Not Contain"}
 
 
+def expected_global_rule_column_names() -> frozenset[str]:
+    """Distinct attribute names referenced by ALL_GLOBAL_RULES (for tracker column checks)."""
+    names: set[str] = set()
+    names.update(MANDATORY_COLS)
+    names.update(SPLIT_REQUIRED_COLS)
+    for a, b in SPLIT_DIMENSION_PAIRS:
+        names.add(a)
+        names.add(b)
+    names.update(NUMERIC_COLS)
+    names.update(INTEGER_COLS)
+    names.update(COUNTRY_OF_ORIGIN_COLS)
+    names.update(NUTRITIONAL_COLS)
+    names.update(TEXT_COLS)
+    names.update(YES_NO_COLS)
+    names.update(ALLERGEN_COLS)
+    names.update(
+        {
+            COL_SOLD_AS_SPLIT,
+            COL_GTIN_OUTER,
+            COL_GTIN_INNER,
+            COL_SHELF_CUSTOMER,
+            COL_SHELF_SYSCO,
+            COL_SHELF_MANUFACTURER,
+            COL_ATTRIBUTE_GROUP_ID,
+            COL_CATCH_WEIGHT,
+            COL_CATCH_FROM,
+            COL_CATCH_TO,
+            COL_HAS_TARIC,
+            COL_TARIC,
+            "Search Name",
+            "Brand Key",
+            "Min Temperature",
+            "Max Temperature",
+            "Item VAT - Purchasing",
+            "Item VAT - Selling",
+            "Item Group",
+            "Seasonal",
+            "Status",
+            "Generic GTIN",
+            "Product Warranty",
+            "Product Warranty Code",
+            "Perishable Product/Date Tracked",
+        }
+    )
+    return frozenset(names)
+
+
 def rule_lov_allergen_status(df: pd.DataFrame) -> list[dict]:
     """Rule L7 — Allergen columns must contain 'Contains', 'May Contain', or 'Does Not Contain'."""
     rule_name = "Rule L7 — Allergen Status LOV"

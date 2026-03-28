@@ -16,9 +16,14 @@ from typing import Optional
 
 import pandas as pd
 
-from utils.helpers import is_empty, make_result
+from utils.helpers import (
+    is_empty,
+    make_result,
+    push_excel_first_data_row,
+    reset_excel_first_data_row,
+)
 from validator import ValidationReport
-from rules.global_rules import ALL_GLOBAL_RULES
+from rules.global_rules import ALL_GLOBAL_RULES, expected_global_rule_column_names
 from rules.vendor_rules import ISO2_COUNTRY_LOV, ITEM_BUYER_GROUP_LOV, COST_CENTRE_LOV
 
 # ---------------------------------------------------------------------------
@@ -679,35 +684,94 @@ def validate_tracker(
     return report
 
 
-def _validate_product_tracker(xl: pd.ExcelFile, report: ValidationReport) -> None:
-    sheet = "in"
-    if sheet not in xl.sheet_names:
+def _item_sheet_header_row_0based() -> int:
+    """Header row for the 'Item' sheet: Excel row 6 → pandas header=5 (override via env)."""
+    raw = os.getenv("TRACKER_PRODUCT_ITEM_HEADER_ROW", "6").strip()
+    try:
+        one_based = max(1, int(raw))
+        return one_based - 1
+    except ValueError:
+        return 5
+
+
+def _resolve_product_tracker_sheet(xl: pd.ExcelFile) -> tuple[str | None, int]:
+    """Pick sheet name and pandas header row (0-based). Prefer legacy 'in', else 'Item'."""
+    by_lower = {s.lower(): s for s in xl.sheet_names}
+    if "in" in by_lower:
+        return by_lower["in"], 0
+    if "item" in by_lower:
+        return by_lower["item"], _item_sheet_header_row_0based()
+    return None, 0
+
+
+def _warn_product_tracker_columns(
+    df: pd.DataFrame, sheet: str, report: ValidationReport
+) -> None:
+    """Compare file columns to names used by ALL_GLOBAL_RULES (exact string match)."""
+    expected = expected_global_rule_column_names()
+    actual = {str(c).strip() for c in df.columns}
+    matched = expected & actual
+    missing = sorted(expected - actual)
+    extra = sorted(actual - expected)
+
+    report.warnings.append(
+        f"Tracker column check [{sheet}]: {len(actual)} columns in file; "
+        f"{len(matched)}/{len(expected)} global-rule attribute names matched exactly."
+    )
+    if missing:
+        max_show = 40
+        tail = f" … (+{len(missing) - max_show} more)" if len(missing) > max_show else ""
         report.warnings.append(
-            f"Sheet '{sheet}' not found in tracker file. Available: {xl.sheet_names}"
+            f"Expected by global rules but missing or renamed ({len(missing)}): "
+            f"{', '.join(missing[:max_show])}{tail}"
+        )
+    if extra:
+        max_show = 25
+        tail = f" … (+{len(extra) - max_show} more)" if len(extra) > max_show else ""
+        report.warnings.append(
+            f"In file but not in global-rule name set ({len(extra)}), may include tracker-only fields: "
+            f"{', '.join(extra[:max_show])}{tail}"
+        )
+
+
+def _validate_product_tracker(xl: pd.ExcelFile, report: ValidationReport) -> None:
+    sheet_name, header_row = _resolve_product_tracker_sheet(xl)
+    if sheet_name is None:
+        report.warnings.append(
+            "No product tracker sheet found (expected 'in' or 'Item'). "
+            f"Available: {xl.sheet_names}"
         )
         return
 
+    # 1-based Excel row of first data row = header_row (0-based) + 2
+    first_data_excel_row = header_row + 2
+    token = push_excel_first_data_row(first_data_excel_row)
     try:
-        df = xl.parse(sheet)
-    except Exception as exc:
-        report.warnings.append(f"Could not read sheet '{sheet}': {exc}")
-        return
-
-    # Normalize XML-encoded column names: <gt/> -> >
-    df.columns = [str(c).replace("<gt/>", ">") for c in df.columns]
-
-    df = df.dropna(how="all").reset_index(drop=True)
-    report.global_row_count = len(df)
-    report.completion.append(_compute_completion(df, sheet))
-    report.tracker_rows.append(_df_to_preview_entries(df, sheet))
-
-    for rule_fn in ALL_GLOBAL_RULES:
         try:
-            report.errors.extend(rule_fn(df))
+            df = xl.parse(sheet_name, header=header_row)
         except Exception as exc:
-            report.warnings.append(
-                f"Rule '{rule_fn.__name__}' error on tracker 'in' sheet: {exc}"
-            )
+            report.warnings.append(f"Could not read sheet '{sheet_name}': {exc}")
+            return
+
+        # Normalize XML-encoded column names: <gt/> -> >
+        df.columns = [str(c).replace("<gt/>", ">") for c in df.columns]
+
+        df = df.dropna(how="all").reset_index(drop=True)
+        report.global_row_count = len(df)
+        report.completion.append(_compute_completion(df, sheet_name))
+        report.tracker_rows.append(_df_to_preview_entries(df, sheet_name))
+
+        _warn_product_tracker_columns(df, sheet_name, report)
+
+        for rule_fn in ALL_GLOBAL_RULES:
+            try:
+                report.errors.extend(rule_fn(df))
+            except Exception as exc:
+                report.warnings.append(
+                    f"Rule '{rule_fn.__name__}' error on tracker sheet '{sheet_name}': {exc}"
+                )
+    finally:
+        reset_excel_first_data_row(token)
 
 
 def _validate_vendor_tracker(xl: pd.ExcelFile, report: ValidationReport) -> None:
