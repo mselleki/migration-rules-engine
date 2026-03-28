@@ -9,6 +9,7 @@ Tracker files have a different structure than migration files:
 
 from __future__ import annotations
 
+import os
 import re
 from io import BytesIO
 from typing import Optional
@@ -267,6 +268,51 @@ def _get_id(row: pd.Series, df: pd.DataFrame) -> str:
 # ---------------------------------------------------------------------------
 # Completion helpers
 # ---------------------------------------------------------------------------
+
+def _tracker_preview_row_limit() -> int | None:
+    """Max rows per sheet in the API `rows` payload for the Data Overview grid.
+
+    ``None`` means no cap (every row is serialized). Default is high enough for
+    typical trackers (~tens of thousands of rows per sheet).
+
+    Override with env ``TRACKER_PREVIEW_MAX_ROWS``:
+      - ``all``, ``0``, or negative: no limit
+      - positive integer: hard cap (safety valve for accidental huge files)
+    """
+    raw = os.getenv("TRACKER_PREVIEW_MAX_ROWS", "50000").strip().lower()
+    if raw in ("all", "none", "0", "-1"):
+        return None
+    try:
+        n = int(raw)
+        return None if n <= 0 else n
+    except ValueError:
+        return 50000
+
+
+def _cell_for_preview(val) -> str:
+    if val is None:
+        return ""
+    if isinstance(val, float) and pd.isna(val):
+        return ""
+    if isinstance(val, pd.Timestamp):
+        return val.isoformat() if pd.notna(val) else ""
+    s = str(val).strip()
+    if s.lower() in ("nan", "nat", "none"):
+        return ""
+    return s
+
+
+def _df_to_preview_entries(df: pd.DataFrame, sheet_name: str) -> dict:
+    """Row dicts for the Tracker Data Overview grid (JSON-safe), optionally capped."""
+    if df is None or df.empty:
+        return {"sheet": sheet_name, "data": []}
+    limit = _tracker_preview_row_limit()
+    sub = df if limit is None else df.head(limit)
+    data: list[dict] = []
+    for _, row in sub.iterrows():
+        rec = {str(k).strip(): _cell_for_preview(row[k]) for k in row.index}
+        data.append(rec)
+    return {"sheet": sheet_name, "data": data}
 
 
 def _compute_completion(df: pd.DataFrame, sheet_name: str) -> dict:
@@ -653,6 +699,7 @@ def _validate_product_tracker(xl: pd.ExcelFile, report: ValidationReport) -> Non
     df = df.dropna(how="all").reset_index(drop=True)
     report.global_row_count = len(df)
     report.completion.append(_compute_completion(df, sheet))
+    report.tracker_rows.append(_df_to_preview_entries(df, sheet))
 
     for rule_fn in ALL_GLOBAL_RULES:
         try:
@@ -686,6 +733,7 @@ def _validate_vendor_tracker(xl: pd.ExcelFile, report: ValidationReport) -> None
         df = _rename_tracker_cols(df, col_map)
         report.global_row_count += len(df)
         report.completion.append(_compute_completion(df, sheet_name))
+        report.tracker_rows.append(_df_to_preview_entries(df, sheet_name))
 
         try:
             report.errors.extend(validate_fn(df, mandatory_cols))
@@ -717,6 +765,7 @@ def _validate_customer_tracker(xl: pd.ExcelFile, report: ValidationReport) -> No
         df = _rename_tracker_cols(df, col_map)
         report.global_row_count += len(df)
         report.completion.append(_compute_completion(df, sheet_name))
+        report.tracker_rows.append(_df_to_preview_entries(df, sheet_name))
 
         try:
             report.errors.extend(validate_fn(df, mandatory_cols))

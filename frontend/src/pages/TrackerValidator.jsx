@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useCallback, useMemo, useEffect } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import {
   Upload,
   X,
@@ -37,6 +37,30 @@ import { getPhase, PHASE_STYLE } from "../data/lovPhases.js";
 import API from "../api.js";
 
 const DOMAINS = ["Products", "Vendors", "Customers"];
+
+/** Env var for SharePoint tracker URL (matches backend tracker_config). */
+const TRACKER_URL_ENV = {
+  Products: "TRACKER_URL_PRODUCTS",
+  Vendors: "TRACKER_URL_VENDORS",
+  Customers: "TRACKER_URL_CUSTOMERS",
+};
+
+/** Local upload: product trackers are often .xlsb; vendor/customer use .xlsx. */
+const TRACKER_EXTENSIONS = {
+  Products: [".xlsb", ".xlsx"],
+  Vendors: [".xlsx"],
+  Customers: [".xlsx"],
+};
+
+function trackerAcceptAttr(d) {
+  return TRACKER_EXTENSIONS[d]?.join(",") ?? ".xlsx";
+}
+
+function isAllowedTrackerFile(d, file) {
+  if (!file?.name) return false;
+  const n = file.name.toLowerCase();
+  return (TRACKER_EXTENSIONS[d] ?? []).some((ext) => n.endsWith(ext));
+}
 
 /** Primary identifier column per Tracker domain (Data Overview sticky column). */
 const DOMAIN_ID_COLUMN = {
@@ -560,6 +584,22 @@ const MOCK_REPORT = {
   ],
 };
 
+// ---------------------------------------------------------------------------
+// Mock history for preview mode
+// ---------------------------------------------------------------------------
+const MOCK_HISTORY = (() => {
+  const now = Date.now() / 1000;
+  const DAY = 86400;
+  return [
+    { ts: now - DAY * 27, pct_complete: 0.41, total_attrs: 48, uncleansed: 28 },
+    { ts: now - DAY * 21, pct_complete: 0.48, total_attrs: 48, uncleansed: 25 },
+    { ts: now - DAY * 14, pct_complete: 0.56, total_attrs: 48, uncleansed: 21 },
+    { ts: now - DAY * 9, pct_complete: 0.62, total_attrs: 48, uncleansed: 18 },
+    { ts: now - DAY * 5, pct_complete: 0.69, total_attrs: 48, uncleansed: 15 },
+    { ts: now - DAY * 2, pct_complete: 0.73, total_attrs: 48, uncleansed: 13 },
+  ];
+})();
+
 function fmtBytes(b) {
   if (!b) return "";
   if (b < 1024) return `${b} B`;
@@ -567,9 +607,7 @@ function fmtBytes(b) {
   return `${(b / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-// --- File drop zone ---
-
-function FileDropZone({ label, file, onFile }) {
+function FileDropZone({ label, file, onFile, accept, extensions, hint }) {
   const inputRef = useRef();
   const [dragging, setDragging] = useState(false);
 
@@ -578,9 +616,13 @@ function FileDropZone({ label, file, onFile }) {
       e.preventDefault();
       setDragging(false);
       const f = e.dataTransfer.files?.[0];
-      if (f && f.name.endsWith(".xlsx")) onFile(f);
+      if (!f) return;
+      const ok = extensions?.length
+        ? extensions.some((ext) => f.name.toLowerCase().endsWith(ext))
+        : f.name.toLowerCase().endsWith(".xlsx");
+      if (ok) onFile(f);
     },
-    [onFile],
+    [onFile, extensions],
   );
 
   return (
@@ -618,12 +660,13 @@ function FileDropZone({ label, file, onFile }) {
           </p>
         ) : (
           <p className="text-xs text-slate-400 mt-0.5">
-            Drop .xlsx or click to browse
+            {hint ?? "Drop a file or click to browse"}
           </p>
         )}
       </div>
       {file ? (
         <button
+          type="button"
           onClick={(e) => {
             e.stopPropagation();
             onFile(null);
@@ -639,29 +682,13 @@ function FileDropZone({ label, file, onFile }) {
       <input
         ref={inputRef}
         type="file"
-        accept=".xlsx"
+        accept={accept ?? ".xlsx"}
         className="hidden"
         onChange={(e) => onFile(e.target.files?.[0] ?? null)}
       />
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Mock history for preview mode
-// ---------------------------------------------------------------------------
-const MOCK_HISTORY = (() => {
-  const now = Date.now() / 1000;
-  const DAY = 86400;
-  return [
-    { ts: now - DAY * 27, pct_complete: 0.41, total_attrs: 48, uncleansed: 28 },
-    { ts: now - DAY * 21, pct_complete: 0.48, total_attrs: 48, uncleansed: 25 },
-    { ts: now - DAY * 14, pct_complete: 0.56, total_attrs: 48, uncleansed: 21 },
-    { ts: now - DAY * 9, pct_complete: 0.62, total_attrs: 48, uncleansed: 18 },
-    { ts: now - DAY * 5, pct_complete: 0.69, total_attrs: 48, uncleansed: 15 },
-    { ts: now - DAY * 2, pct_complete: 0.73, total_attrs: 48, uncleansed: 13 },
-  ];
-})();
 
 // --- Progress card ---
 
@@ -1522,7 +1549,7 @@ export default function TrackerValidator() {
   const [dashboard, setDashboard] = useState(null); // { Products: {configured, cached}, ... }
   const [refreshing, setRefreshing] = useState(false);
   const [mockMode, setMockMode] = useState(false);
-  // Upload fallback
+  const [liveTab, setLiveTab] = useState("sharepoint");
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadReport, setUploadReport] = useState(null);
@@ -1542,6 +1569,30 @@ export default function TrackerValidator() {
   const report = cached?.report ?? null;
   const cacheError = cached?.error ?? null;
   const updatedAt = cached?.updated_at ?? null;
+
+  useEffect(() => {
+    if (!isConfigured) setLiveTab("upload");
+  }, [isConfigured]);
+
+  const showSharePointTab = isConfigured && !mockMode;
+  const showUploadPanel = !mockMode && (!isConfigured || liveTab === "upload");
+  const showSharePointPanel =
+    !mockMode && isConfigured && liveTab === "sharepoint";
+
+  const uploadHint =
+    domain === "Products"
+      ? "Drop .xlsb or .xlsx, or click to browse"
+      : "Drop .xlsx or click to browse";
+
+  function setTrackerFile(f) {
+    if (f && !isAllowedTrackerFile(domain, f)) {
+      const ext = TRACKER_EXTENSIONS[domain]?.join(" or ") ?? ".xlsx";
+      setUploadError(`For ${domain}, use ${ext}.`);
+      return;
+    }
+    setUploadError(null);
+    setFile(f);
+  }
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -1567,7 +1618,7 @@ export default function TrackerValidator() {
 
   async function handleUpload(e) {
     e.preventDefault();
-    if (!file) return;
+    if (!file || !isAllowedTrackerFile(domain, file)) return;
     setUploading(true);
     setUploadError(null);
     setUploadReport(null);
@@ -1583,7 +1634,9 @@ export default function TrackerValidator() {
         const d = await res.json().catch(() => ({}));
         throw new Error(d.detail || `HTTP ${res.status}`);
       }
-      setUploadReport(await res.json());
+      const data = await res.json();
+      setUploadReport(data);
+      if (isConfigured) setLiveTab("upload");
     } catch (err) {
       setUploadError(err.message);
     } finally {
@@ -1606,6 +1659,7 @@ export default function TrackerValidator() {
             setFile(null);
             setUploadReport(null);
             setUploadError(null);
+            if (!dashboard?.[d]?.configured) setLiveTab("upload");
           }}
         >
           <SelectTrigger
@@ -1633,17 +1687,74 @@ export default function TrackerValidator() {
             : "Not configured"}
         </div>
         <div className="flex-1" />
-        <button
-          onClick={() => setMockMode((v) => !v)}
-          className={`text-xs px-2.5 py-1 rounded-md border transition-colors ${
-            mockMode
-              ? "border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:border-amber-700 dark:text-amber-400"
-              : "border-slate-200 dark:border-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-          }`}
-        >
-          {mockMode ? "✕ Mock" : "Preview mock"}
-        </button>
-        {isConfigured && (
+        <div className="flex items-center gap-1 flex-wrap">
+          <div
+            className="flex rounded-md border border-slate-200 dark:border-slate-700 p-0.5 bg-slate-50 dark:bg-slate-800/60"
+            role="group"
+            aria-label="Data source"
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setMockMode(true);
+                setUploadError(null);
+              }}
+              className={`text-xs px-2.5 py-1 rounded transition-colors ${
+                mockMode
+                  ? "bg-white dark:bg-slate-900 shadow-sm text-slate-800 dark:text-slate-100 font-medium"
+                  : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              }`}
+            >
+              Mock
+            </button>
+            <button
+              type="button"
+              onClick={() => setMockMode(false)}
+              className={`text-xs px-2.5 py-1 rounded transition-colors ${
+                !mockMode
+                  ? "bg-white dark:bg-slate-900 shadow-sm text-slate-800 dark:text-slate-100 font-medium"
+                  : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              }`}
+            >
+              Live
+            </button>
+          </div>
+          {showSharePointTab && (
+            <div
+              className="flex rounded-md border border-slate-200 dark:border-slate-700 p-0.5 bg-slate-50 dark:bg-slate-800/60"
+              role="tablist"
+              aria-label="Live tracker source"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={liveTab === "sharepoint"}
+                onClick={() => setLiveTab("sharepoint")}
+                className={`text-xs px-2.5 py-1 rounded transition-colors ${
+                  liveTab === "sharepoint"
+                    ? "bg-white dark:bg-slate-900 shadow-sm text-slate-800 dark:text-slate-100 font-medium"
+                    : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                }`}
+              >
+                SharePoint
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={liveTab === "upload"}
+                onClick={() => setLiveTab("upload")}
+                className={`text-xs px-2.5 py-1 rounded transition-colors ${
+                  liveTab === "upload"
+                    ? "bg-white dark:bg-slate-900 shadow-sm text-slate-800 dark:text-slate-100 font-medium"
+                    : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                }`}
+              >
+                Upload
+              </button>
+            </div>
+          )}
+        </div>
+        {showSharePointPanel && (
           <Button
             onClick={handleRefresh}
             disabled={refreshing}
@@ -1659,42 +1770,70 @@ export default function TrackerValidator() {
         )}
       </div>
 
-      {/* Upload fallback - shown inline when domain not configured */}
-      {!isConfigured && !mockMode && (
-        <div className="flex items-end gap-3 flex-wrap">
-          <div className="flex-1 min-w-[240px] max-w-sm">
-            <p className="text-xs text-slate-400 mb-2">
-              No SharePoint URL configured. Upload a tracker file or set{" "}
-              <code className="px-1 py-px rounded bg-slate-100 dark:bg-slate-800 text-[10px]">
-                TRACKER_URL_{domain.toUpperCase()}
-              </code>{" "}
-              in Railway.
-            </p>
-            <form onSubmit={handleUpload} className="flex gap-2 items-start">
-              <div className="flex-1">
-                <FileDropZone
-                  label="Tracker file (.xlsx / .xlsb)"
-                  file={file}
-                  onFile={setFile}
-                />
-              </div>
-              <Button
-                type="submit"
-                disabled={!file || uploading}
-                size="sm"
-                className="flex-shrink-0 mt-0.5"
-              >
-                {uploading ? (
-                  <>
-                    <span className="h-3 w-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />{" "}
-                    Validating…
-                  </>
-                ) : (
-                  "Validate"
-                )}
-              </Button>
-            </form>
-          </div>
+      {!mockMode && !isConfigured && (
+        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-600 dark:text-slate-300 space-y-2">
+          <p className="font-medium text-slate-800 dark:text-slate-100">
+            SharePoint not configured — use Upload below to test
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            When you have access, set{" "}
+            <code className="px-1 py-px rounded bg-slate-100 dark:bg-slate-800 text-[10px]">
+              {TRACKER_URL_ENV[domain]}
+            </code>
+            ,{" "}
+            <code className="px-1 py-px rounded bg-slate-100 dark:bg-slate-800 text-[10px]">
+              SHAREPOINT_CLIENT_ID
+            </code>
+            , and{" "}
+            <code className="px-1 py-px rounded bg-slate-100 dark:bg-slate-800 text-[10px]">
+              SHAREPOINT_CLIENT_SECRET
+            </code>{" "}
+            for automated pulls. The backend SharePoint connector is unchanged.
+          </p>
+        </div>
+      )}
+
+      {showUploadPanel && (
+        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3">
+          <p className="text-xs text-slate-400 mb-2">
+            {isConfigured
+              ? "Validate a local tracker file with the same rules as SharePoint (columns detected server-side)."
+              : "Upload a tracker file to run validation without SharePoint."}
+          </p>
+          <form
+            onSubmit={handleUpload}
+            className="flex gap-2 items-start flex-wrap"
+          >
+            <div className="flex-1 min-w-[220px] max-w-md">
+              <FileDropZone
+                label={
+                  domain === "Products"
+                    ? "Product tracker (.xlsb or .xlsx)"
+                    : "Tracker file (.xlsx)"
+                }
+                file={file}
+                onFile={setTrackerFile}
+                accept={trackerAcceptAttr(domain)}
+                extensions={TRACKER_EXTENSIONS[domain]}
+                hint={uploadHint}
+              />
+            </div>
+            <Button
+              type="submit"
+              disabled={!file || uploading}
+              size="sm"
+              className="flex-shrink-0 mt-0.5"
+            >
+              {uploading ? (
+                <>
+                  <span className="h-3 w-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />{" "}
+                  Validating…
+                </>
+              ) : (
+                "Validate"
+              )}
+            </Button>
+          </form>
         </div>
       )}
 
@@ -1717,14 +1856,14 @@ export default function TrackerValidator() {
           </div>
         )}
 
-        {!mockMode && refreshing && !cached && (
+        {showSharePointPanel && refreshing && !cached && (
           <div className="flex items-center justify-center h-40 text-slate-400 text-sm gap-2">
             <RefreshCw className="h-4 w-4 animate-spin" />
             Fetching from SharePoint…
           </div>
         )}
 
-        {!mockMode && (report || cacheError) && (
+        {showSharePointPanel && (report || cacheError) && (
           <div>
             {cached?.report?.source?.filename && (
               <div className="flex items-center gap-2 text-xs text-slate-400 mb-3">
@@ -1748,12 +1887,22 @@ export default function TrackerValidator() {
           </div>
         )}
 
-        {!mockMode && (uploadReport || uploadError) && !isConfigured && (
-          <ResultsBlock
-            report={uploadReport}
-            error={uploadError}
-            domain={domain}
-          />
+        {showUploadPanel && (uploadReport || uploadError) && (
+          <div className="mt-4 space-y-3">
+            {uploadReport?.source?.filename && (
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <FileSpreadsheet className="h-3.5 w-3.5 flex-shrink-0" />
+                <span className="truncate">{uploadReport.source.filename}</span>
+                <span className="text-slate-300 dark:text-slate-600">·</span>
+                <span className="text-brand-500">Local upload</span>
+              </div>
+            )}
+            <ResultsBlock
+              report={uploadReport}
+              error={uploadError}
+              domain={domain}
+            />
+          </div>
         )}
       </div>
     </div>

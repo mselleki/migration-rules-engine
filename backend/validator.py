@@ -38,6 +38,9 @@ class ValidationReport:
     completion: list[dict] = field(
         default_factory=list
     )  # per-sheet fill rates (tracker only)
+    tracker_rows: list[dict] = field(
+        default_factory=list
+    )  # [{sheet, data: [row dicts]}] capped preview for tracker UI
 
     @property
     def total_rows(self) -> int:

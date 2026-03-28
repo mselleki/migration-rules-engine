@@ -70,6 +70,7 @@ def _report_to_dict(report) -> dict:
         "errors": report.errors,
         "warnings": report.warnings,
         "completion": report.completion,
+        "rows": list(getattr(report, "tracker_rows", None) or []),
     }
 
 
@@ -455,16 +456,12 @@ async def validate_tracker_endpoint(
 
     file_bytes = await file.read()
     report = validate_tracker(domain, file_bytes, filename=file.filename or "")
-    return {
-        "summary": {
-            "total_rows": report.total_rows,
-            "total_errors": report.total_errors,
-            "errors_by_rule": report.errors_by_rule,
-        },
-        "errors": report.errors,
-        "warnings": report.warnings,
-        "completion": report.completion,
+    out = _report_to_dict(report)
+    out["source"] = {
+        "type": "upload",
+        "filename": file.filename or "",
     }
+    return out
 
 
 class SharePointTrackerIn(BaseModel):
@@ -488,21 +485,13 @@ async def validate_tracker_sharepoint(body: SharePointTrackerIn):
         raise HTTPException(status_code=502, detail=f"SharePoint error: {exc}")
 
     report = validate_tracker(body.domain, file_bytes, filename=filename)
-    return {
-        "summary": {
-            "total_rows": report.total_rows,
-            "total_errors": report.total_errors,
-            "errors_by_rule": report.errors_by_rule,
-        },
-        "errors": report.errors,
-        "warnings": report.warnings,
-        "completion": report.completion,
-        "source": {
-            "type": "sharepoint",
-            "filename": filename,
-            "url": body.sharepoint_url,
-        },
+    out = _report_to_dict(report)
+    out["source"] = {
+        "type": "sharepoint",
+        "filename": filename,
+        "url": body.sharepoint_url,
     }
+    return out
 
 
 # ---------------------------------------------------------------------------
